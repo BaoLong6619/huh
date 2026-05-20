@@ -1,0 +1,437 @@
+-- script esp 
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+
+
+if CoreGui:FindFirstChild("LongBeo_Modern_ESP_Fixed") then
+    CoreGui["LongBeo_Modern_ESP_Fixed"]:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeo_Modern_ESP_Fixed"
+ScreenGui.ResetOnSpawn = false -- Dead không mất giao diện GUI
+ScreenGui.DisplayOrder = 999999999
+
+local success, err = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+
+local BlurEffect = Lighting:FindFirstChild("LongBeo_BlurFixed")
+if not BlurEffect then
+    BlurEffect = Instance.new("BlurEffect")
+    BlurEffect.Name = "LongBeo_BlurFixed"
+    BlurEffect.Size = 12
+    BlurEffect.Parent = Lighting
+end
+
+
+local function MakeDraggable(gui)
+    local dragging, dragInput, dragStart, startPos
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    RunService.Heartbeat:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 110, 0, 40)
+ToggleBtn.Position = UDim2.new(0, 30, 0, 120)
+ToggleBtn.Text = "★ long béo"
+ToggleBtn.TextSize = 14
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 170, 255)
+ToggleBtn.ZIndex = 5 
+ToggleBtn.Parent = ScreenGui
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 8)
+BtnCorner.Parent = ToggleBtn
+
+local BtnStroke = Instance.new("UIStroke")
+BtnStroke.Thickness = 1
+BtnStroke.Color = Color3.fromRGB(45, 45, 55)
+BtnStroke.Parent = ToggleBtn
+
+MakeDraggable(ToggleBtn)
+
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Đặt bằng 0 để chạy hiệu ứng mở mượt mà
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+MainFrame.Visible = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = MainFrame
+
+
+local Shadow = Instance.new("ImageLabel")
+Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+Shadow.Size = UDim2.new(1, 30, 1, 30)
+Shadow.BackgroundTransparency = 1
+Shadow.Image = "rbxassetid://1316045217"
+Shadow.ImageTransparency = 0.5
+Shadow.ZIndex = 0 -- Đảm bảo nằm sau cùng
+Shadow.Parent = MainFrame
+
+MakeDraggable(MainFrame)
+
+
+local isOpen = false
+local function ToggleGUI()
+    isOpen = not isOpen
+    if isOpen then
+        MainFrame.Visible = true
+        BlurEffect.Size = 12
+        TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 350, 0, 380)}):Play()
+    else
+        BlurEffect.Size = 0
+        local tw = TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 0, 0, 0)})
+        tw:Play()
+        tw.Completed:Connect(function() if not isOpen then MainFrame.Visible = false end end)
+    end
+end
+ToggleBtn.MouseButton1Click:Connect(ToggleGUI)
+ToggleGUI()
+
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 45)
+Title.Text = "🔥 LONG BÉO ESP PRO 🔥"
+Title.TextSize = 14
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.ZIndex = 2 
+Title.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 14)
+TitleCorner.Parent = Title
+
+local Grad = Instance.new("UIGradient")
+Grad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 0, 255))
+}
+Grad.Parent = Title
+
+
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -20, 1, -60)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 52)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ClipsDescendants = true
+ScrollFrame.ScrollBarThickness = 2
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(45, 45, 55)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ScrollFrame.ZIndex = 2 -- Sửa lỗi tiềm ẩn: Đẩy lên trên tầng shadow tránh lỗi tương tác bấm nút
+ScrollFrame.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 8)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.VerticalAlignment = Enum.VerticalAlignment.Top
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = ScrollFrame
+
+
+local ESPConfig = { Highlight = false, Distance = false, Chams = false, GlowPulse = false, MaxDistance = 300 }
+local ActiveHighlights = {}
+local ActiveChams = {}
+local ActiveToggles = {}
+
+
+task.spawn(function()
+    while task.wait(0.1) do
+        -- Sửa lỗi an toàn: Kiểm tra tuyệt đối sự tồn tại của nhân vật LocalPlayer tránh crash chuỗi nil chain
+        local lpChar = LocalPlayer.Character
+        local lpHRP = lpChar and lpChar:FindFirstChild("HumanoidRootPart")
+
+        if lpHRP then
+       
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local char = player.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                        local hrp = char.HumanoidRootPart
+                        local hum = char.Humanoid
+                        local head = char:FindFirstChild("Head")
+                        
+                        
+                        local distance = (lpHRP.Position - hrp.Position).Magnitude
+
+                        
+                        if distance < ESPConfig.MaxDistance and hum.Health > 0 then
+                            
+                            
+                            if ESPConfig.Highlight then
+                                local hl = ActiveHighlights[player] or char:FindFirstChild("LongBeo_HL")
+                                if not hl then
+                                    hl = Instance.new("Highlight")
+                                    hl.Name = "LongBeo_HL"
+                                    hl.FillTransparency = 0.6
+                                    hl.OutlineTransparency = 0
+                                    hl.Parent = char
+                                    ActiveHighlights[player] = hl
+                                end
+                                hl.FillColor = Color3.fromRGB(255 * (1 - (hum.Health/hum.MaxHealth)), 255 * (hum.Health/hum.MaxHealth), 0)
+                                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                
+                                
+                                if ESPConfig.GlowPulse then
+                                    hl.OutlineTransparency = math.clamp(math.sin(tick() * 4), 0, 0.8)
+                                else
+                                    hl.OutlineTransparency = 0
+                                end
+                            else
+                                if ActiveHighlights[player] then ActiveHighlights[player]:Destroy() ActiveHighlights[player] = nil end
+                                local oldHl = char:FindFirstChild("LongBeo_HL") if oldHl then oldHl:Destroy() end
+                            end
+
+                            
+                            if ESPConfig.Chams then
+                                if not ActiveChams[player] then
+                                    local box = Instance.new("BoxHandleAdornment")
+                                    box.Name = "LongBeo_Cham"
+                                    box.Size = Vector3.new(4, 5.5, 1)
+                                    box.AlwaysOnTop = true
+                                    box.ZIndex = 5
+                                    box.Adornee = char
+                                    box.Color3 = Color3.fromRGB(0, 170, 255)
+                                    box.Transparency = 0.5
+                                    box.Parent = ScreenGui
+                                    ActiveChams[player] = box
+                                else
+                                    ActiveChams[player].Adornee = char
+                                end
+                            else
+                                if ActiveChams[player] then ActiveChams[player]:Destroy() ActiveChams[player] = nil end
+                            end
+
+                            
+                            if ESPConfig.Distance and head then
+                                local bg = head:FindFirstChild("LongBeo_ESP_Bill")
+                                if not bg then
+                                    bg = Instance.new("BillboardGui")
+                                    bg.Name = "LongBeo_ESP_Bill"
+                                    bg.Size = UDim2.new(0, 130, 0, 45)
+                                    bg.StudsOffset = Vector3.new(0, 3, 0)
+                                    bg.AlwaysOnTop = true
+                                    
+                                    local tl = Instance.new("TextLabel")
+                                    tl.Name = "Info"
+                                    tl.Size = UDim2.new(1, 0, 0, 20)
+                                    tl.BackgroundTransparency = 1
+                                    tl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                    tl.TextSize = 12
+                                    tl.Font = Enum.Font.GothamBold
+                                    tl.TextStrokeTransparency = 0.4
+                                    tl.Parent = bg
+
+                                    local barBg = Instance.new("Frame")
+                                    barBg.Name = "BarBg"
+                                    barBg.Size = UDim2.new(0, 80, 0, 4)
+                                    barBg.Position = UDim2.new(0.5, -40, 0, 22)
+                                    barBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                                    barBg.BorderSizePixel = 0
+                                    barBg.Parent = bg
+
+                                    local barMain = Instance.new("Frame")
+                                    barMain.Name = "BarMain"
+                                    barMain.Size = UDim2.new(1, 0, 1, 0)
+                                    barMain.BorderSizePixel = 0
+                                    barMain.Parent = barBg
+
+                                    bg.Parent = head
+                                end
+                                
+                                if bg:FindFirstChild("Info") then
+                                    bg.Info.Text = player.Name .. " [" .. math.floor(distance) .. "m]"
+                                    bg.BarBg.BarMain.Size = UDim2.new(hum.Health / hum.MaxHealth, 0, 1, 0)
+                                    
+                                    
+                                    if hum.Health > 60 then
+                                        bg.BarBg.BarMain.BackgroundColor3 = Color3.fromRGB(0, 255, 150) 
+                                    elseif hum.Health > 25 then
+                                        bg.BarBg.BarMain.BackgroundColor3 = Color3.fromRGB(255, 200, 0) 
+                                    else
+                                        bg.BarBg.BarMain.BackgroundColor3 = Color3.fromRGB(255, 70, 70) 
+                                    end
+                                end
+                            else
+                                local oldBg = head and head:FindFirstChild("LongBeo_ESP_Bill")
+                                if oldBg then oldBg:Destroy() end
+                            end
+
+                        else
+                            
+                            if ActiveHighlights[player] then ActiveHighlights[player]:Destroy() ActiveHighlights[player] = nil end
+                            if ActiveChams[player] then ActiveChams[player]:Destroy() ActiveChams[player] = nil end
+                            local oldBg = head and head:FindFirstChild("LongBeo_ESP_Bill") if oldBg then oldBg:Destroy() end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+
+Players.PlayerRemoving:Connect(function(player)
+    if ActiveHighlights[player] then ActiveHighlights[player]:Destroy() ActiveHighlights[player] = nil end
+    if ActiveChams[player] then ActiveChams[player]:Destroy() ActiveChams[player] = nil end
+end)
+
+
+local function AddToggleiOS(text, callback)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, -10, 0, 46)
+    card.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+    card.ZIndex = 3
+    card.Parent = ScrollFrame
+
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.CornerRadius = UDim.new(0, 8)
+    cardCorner.Parent = card
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -70, 1, 0)
+    label.Position = UDim2.new(0, 14, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(230, 230, 235)
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 3
+    label.Parent = card
+
+    local switch = Instance.new("TextButton")
+    switch.Size = UDim2.new(0, 44, 0, 24)
+    switch.Position = UDim2.new(1, -54, 0.5, -12)
+    switch.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    switch.Text = ""
+    switch.ZIndex = 3
+    switch.Parent = card
+
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(1, 0)
+    switchCorner.Parent = switch
+
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.new(0, 18, 0, 18)
+    circle.Position = UDim2.new(0, 3, 0.5, -9)
+    circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    circle.BorderSizePixel = 0
+    circle.ZIndex = 3
+    circle.Parent = switch
+
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = circle
+
+    local state = false
+    
+    local function UpdateState(targetState)
+        state = targetState
+        if state then
+            TweenService:Create(switch, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(0, 170, 255)}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.15), {Position = UDim2.new(1, -21, 0.5, -9)}):Play()
+        else
+            TweenService:Create(switch, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(55, 55, 65)}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.15), {Position = UDim2.new(0, 3, 0.5, -9)}):Play()
+        end
+        callback(state)
+    end
+
+    switch.MouseButton1Click:Connect(function()
+        TweenService:Create(card, TweenInfo.new(0.1), {Size = UDim2.new(1, -4, 0, 48)}):Play()
+        task.wait(0.1)
+        TweenService:Create(card, TweenInfo.new(0.1), {Size = UDim2.new(1, -10, 0, 46)}):Play()
+        UpdateState(not state)
+    end)
+
+    ActiveToggles[text] = UpdateState
+end
+
+
+local function AddPresetButton(name, configs)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 40)
+    btn.Text = "⚡ CẤU HÌNH NHANH: " .. name
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamBold
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.ZIndex = 3
+    btn.Parent = ScrollFrame
+
+    local uic = Instance.new("UICorner")
+    uic.CornerRadius = UDim.new(0, 8)
+    uic.Parent = btn
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1
+    stroke.Color = Color3.fromRGB(55, 55, 70)
+    stroke.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 170, 255)}):Play()
+        task.wait(0.1)
+        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40, 40, 50)}):Play()
+        
+        for toggleName, targetState in pairs(configs) do
+            if ActiveToggles[toggleName] then ActiveToggles[toggleName](targetState) end
+        end
+    end)
+end
+
+
+AddToggleiOS("Hiện Khung Đổi Màu (Highlight)", function(state) ESPConfig.Highlight = state end)
+AddToggleiOS("Premium Chams (Xuyên Tường)", function(state) ESPConfig.Chams = state end)
+AddToggleiOS("Hiện Tên & Thanh Máu 3 Màu", function(state) ESPConfig.Distance = state end)
+AddToggleiOS("Hiệu Ứng Nhấp Nháy (Glow Pulse)", function(state) ESPConfig.GlowPulse = state end)
+
+AddPresetButton("Mobile Mượt Nhẹ", {
+    ["Hiện Khung Đổi Màu (Highlight)"] = false,
+    ["Premium Chams (Xuyên Tường)"] = true,
+    ["Hiện Tên & Thanh Máu 3 Màu"] = true,
+    ["Hiệu Ứng Nhấp Nháy (Glow Pulse)"] = false
+})
+
+AddPresetButton("Full Rage Cyber", {
+    ["Hiện Khung Đổi Màu (Highlight)"] = true,
+    ["Premium Chams (Xuyên Tường)"] = true,
+    ["Hiện Tên & Thanh Máu 3 Màu"] = true,
+    ["Hiệu Ứng Nhấp Nháy (Glow Pulse)"] = true
+})
