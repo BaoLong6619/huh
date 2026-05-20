@@ -1,0 +1,123 @@
+--auto jump visible frame v71
+--[[ 
+    SCRIPT: AUTO JUMP - LONG BÉO (VISIBLE CONTROL FRAME)
+    CẬP NHẬT: 
+      - Khung chứa nút Khóa & long béo hiện hình (Visible) để dễ kéo.
+      - Nút Jump đứng riêng lẻ hoàn toàn như gốc.
+    GIỮ NGUYÊN: Logic nhảy, Chống reset, Tàng hình 100%.
+]]
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local pg = player:WaitForChild("PlayerGui")
+
+-- 1. XÓA GUI CŨ
+if pg:FindFirstChild("AutoJumpGUI_V71") then pg.AutoJumpGUI_V71:Destroy() end
+
+-- 2. KHỞI TẠO (CHỐNG RESET)
+local gui = Instance.new("ScreenGui", pg)
+gui.Name = "AutoJumpGUI_V71"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 2147483647
+
+local autoJump = false
+local lockDrag = false
+local isInvisible = false
+
+-- 3. HÀM KÉO THẢ GỐC
+local function makeDraggable(obj)
+	local dragging, dragStart, startPos
+	obj.InputBegan:Connect(function(input)
+		if lockDrag then return end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true; dragStart = input.Position; startPos = obj.Position
+		end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if dragging and not lockDrag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+	obj.InputEnded:Connect(function() dragging = false end)
+end
+
+-- 4. NÚT JUMP RIÊNG LẺ (NHƯ GỐC)
+local btnJump = Instance.new("TextButton", gui)
+btnJump.Size = UDim2.new(0, 240, 0, 70); btnJump.Position = UDim2.new(0.2, 0, 0.3, 0)
+btnJump.Text = "Auto Jump: OFF"; btnJump.TextScaled = true; btnJump.TextColor3 = Color3.new(1,1,1)
+btnJump.BackgroundColor3 = Color3.fromRGB(45,45,45); btnJump.BorderSizePixel = 0
+Instance.new("UICorner", btnJump).CornerRadius = UDim.new(0, 18)
+makeDraggable(btnJump)
+
+-- 5. KHUNG ĐIỀU KHIỂN HIỆN HÌNH (VISIBLE FRAME)
+local controlFrame = Instance.new("Frame", gui)
+controlFrame.Name = "long béo control"
+controlFrame.Size = UDim2.new(0, 195, 0, 75); controlFrame.Position = UDim2.new(0.2, 0, 0.42, 0)
+controlFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Màu nền tối chuyên nghiệp
+controlFrame.BorderSizePixel = 0
+local frameStroke = Instance.new("UIStroke", controlFrame)
+frameStroke.Color = Color3.fromRGB(255, 120, 0); frameStroke.Thickness = 2 -- Viền màu cam long béo
+Instance.new("UICorner", controlFrame).CornerRadius = UDim.new(0, 12)
+makeDraggable(controlFrame)
+
+-- Nút Khóa 🔒 bên trong khung
+local btnLock = Instance.new("TextButton", controlFrame)
+btnLock.Size = UDim2.new(0, 55, 0, 55); btnLock.Position = UDim2.new(0, 10, 0, 10)
+btnLock.Text = "🔒"; btnLock.TextScaled = true; btnLock.TextColor3 = Color3.new(1,1,1)
+btnLock.BackgroundColor3 = Color3.fromRGB(45,45,45); btnLock.BorderSizePixel = 0
+Instance.new("UICorner", btnLock).CornerRadius = UDim.new(0, 15)
+
+-- Nút long béo bên trong khung
+local btnHide = Instance.new("TextButton", controlFrame)
+btnHide.Size = UDim2.new(0, 110, 0, 45); btnHide.Position = UDim2.new(0, 75, 0, 15)
+btnHide.Text = "long béo"; btnHide.TextColor3 = Color3.fromRGB(255, 120, 0)
+btnHide.Font = Enum.Font.SourceSansBold; btnHide.TextSize = 18; btnHide.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+btnHide.BorderSizePixel = 0
+Instance.new("UICorner", btnHide).CornerRadius = UDim.new(0, 10)
+
+-- 6. XỬ LÝ LOGIC TÀNG HÌNH 100%
+btnHide.MouseButton1Click:Connect(function()
+    isInvisible = not isInvisible
+    local trans = isInvisible and 1 or 0
+    -- Tàng hình nút Jump
+    btnJump.BackgroundTransparency = trans; btnJump.TextTransparency = trans
+    -- Tàng hình khung và nút bên trong
+    controlFrame.BackgroundTransparency = trans; frameStroke.Enabled = not isInvisible
+    btnLock.BackgroundTransparency = trans; btnLock.TextTransparency = trans
+    btnHide.BackgroundTransparency = trans; btnHide.TextTransparency = trans
+end)
+
+-- 7. XỬ LÝ LOGIC JUMP & LOCK
+btnJump.MouseButton1Click:Connect(function()
+	autoJump = not autoJump
+	btnJump.Text = autoJump and "Auto Jump: ON" or "Auto Jump: OFF"
+	btnJump.BackgroundColor3 = autoJump and Color3.fromRGB(0,150,0) or Color3.fromRGB(45,45,45)
+end)
+
+btnLock.MouseButton1Click:Connect(function()
+	lockDrag = not lockDrag
+	btnLock.Text = lockDrag and "🔓" or "🔒"
+	btnLock.BackgroundColor3 = lockDrag and Color3.fromRGB(150,0,0) or Color3.fromRGB(45,45,45)
+end)
+
+-- 8. LOGIC AUTO JUMP GỐC (SIÊU CHI TIẾT)
+task.spawn(function()
+	while true do
+		task.wait(0.02)
+		if not autoJump then continue end
+		local char = player.Character
+		if char then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			if hum and hrp then
+				local params = RaycastParams.new()
+				params.FilterDescendantsInstances = {char}
+				params.FilterType = Enum.RaycastFilterType.Blacklist
+				local result = workspace:Raycast(hrp.Position, Vector3.new(0, -4, 0), params)
+				if result then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+			end
+		end
+	end
+end)
