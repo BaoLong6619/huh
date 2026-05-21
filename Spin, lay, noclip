@@ -1,0 +1,331 @@
+--// 🔥 LONG BÉO HUB V6 - FIX BLUR + FIX LAY 🔥
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+
+--// Anti Duplicate
+pcall(function()
+	if CoreGui:FindFirstChild("LongBeoHubV6") then
+		CoreGui.LongBeoHubV6:Destroy()
+	end
+end)
+
+--// Variables
+local SpinSpeed = 50
+local IsSpinning = false
+local Noclip = false
+
+local SpinConnection
+local NoclipConnection
+
+--// GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeoHubV6"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+ScreenGui.DisplayOrder = 999999
+
+--// Drag System
+local function MakeDrag(gui)
+
+	local dragging
+	local dragInput
+	local dragStart
+	local startPos
+
+	gui.InputBegan:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+			dragging = true
+			dragStart = input.Position
+			startPos = gui.Position
+
+			input.Changed:Connect(function()
+
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	gui.InputChanged:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+
+		if input == dragInput and dragging then
+
+			local delta = input.Position - dragStart
+
+			TweenService:Create(gui,TweenInfo.new(
+				0.08,
+				Enum.EasingStyle.Quint,
+				Enum.EasingDirection.Out
+			),{
+				Position = UDim2.new(
+					startPos.X.Scale,
+					startPos.X.Offset + delta.X,
+					startPos.Y.Scale,
+					startPos.Y.Offset + delta.Y
+				)
+			}):Play()
+		end
+	end)
+end
+
+--// Click Effect
+local function ClickEffect(btn,callback)
+
+	btn.MouseButton1Click:Connect(function()
+
+		local oldSize = btn.Size
+
+		TweenService:Create(btn,TweenInfo.new(0.08),{
+			Size = UDim2.new(
+				oldSize.X.Scale,
+				oldSize.X.Offset - 4,
+				oldSize.Y.Scale,
+				oldSize.Y.Offset - 4
+			)
+		}):Play()
+
+		task.wait(0.08)
+
+		TweenService:Create(btn,TweenInfo.new(
+			0.15,
+			Enum.EasingStyle.Back
+		),{
+			Size = oldSize
+		}):Play()
+
+		if callback then
+			callback()
+		end
+	end)
+end
+
+--// Toggle Button
+local Toggle = Instance.new("TextButton")
+Toggle.Parent = ScreenGui
+Toggle.Size = UDim2.new(0,120,0,45)
+Toggle.Position = UDim2.new(0.03,0,0.2,0)
+Toggle.BackgroundColor3 = Color3.fromRGB(20,20,20)
+Toggle.Text = "⚡ Long Béo"
+Toggle.TextColor3 = Color3.new(1,1,1)
+Toggle.TextSize = 15
+Toggle.Font = Enum.Font.GothamBold
+Toggle.BorderSizePixel = 0
+
+Instance.new("UICorner",Toggle).CornerRadius = UDim.new(0,14)
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Parent = Toggle
+ToggleStroke.Color = Color3.fromRGB(90,90,90)
+
+MakeDrag(Toggle)
+
+--// Main Frame
+local Main = Instance.new("Frame")
+Main.Parent = ScreenGui
+Main.Size = UDim2.new(0,370,0,300)
+Main.Position = UDim2.new(0.33,0,0.25,0)
+Main.BackgroundColor3 = Color3.fromRGB(24,24,24)
+Main.BorderSizePixel = 0
+
+Instance.new("UICorner",Main).CornerRadius = UDim.new(0,22)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Parent = Main
+Stroke.Color = Color3.fromRGB(60,60,60)
+
+MakeDrag(Main)
+
+--// Toggle GUI
+ClickEffect(Toggle,function()
+	Main.Visible = not Main.Visible
+end)
+
+--// Title
+local Title = Instance.new("TextLabel")
+Title.Parent = Main
+Title.Size = UDim2.new(1,-20,0,45)
+Title.Position = UDim2.new(0,15,0,0)
+Title.BackgroundTransparency = 1
+Title.Text = "🔥 Long Béo Premium"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+--// Close
+local Close = Instance.new("TextButton")
+Close.Parent = Main
+Close.Size = UDim2.new(0,30,0,30)
+Close.Position = UDim2.new(1,-40,0,8)
+Close.BackgroundColor3 = Color3.fromRGB(40,40,40)
+Close.Text = "×"
+Close.TextColor3 = Color3.new(1,1,1)
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 20
+Close.BorderSizePixel = 0
+
+Instance.new("UICorner",Close).CornerRadius = UDim.new(1,0)
+
+ClickEffect(Close,function()
+	Main.Visible = false
+end)
+
+--// Container
+local Container = Instance.new("Frame")
+Container.Parent = Main
+Container.Size = UDim2.new(1,-20,1,-60)
+Container.Position = UDim2.new(0,10,0,50)
+Container.BackgroundTransparency = 1
+
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = Container
+Layout.Padding = UDim.new(0,10)
+
+--// Create Button
+local function CreateButton(text,color)
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1,0,0,40)
+	btn.BackgroundColor3 = color
+	btn.Text = text
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.BorderSizePixel = 0
+
+	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,12)
+
+	return btn
+end
+
+--// Spin
+local SpinBtn = CreateButton("🔄 Spin",Color3.fromRGB(0,122,255))
+SpinBtn.Parent = Container
+
+ClickEffect(SpinBtn,function()
+
+	IsSpinning = not IsSpinning
+
+	if SpinConnection then
+		SpinConnection:Disconnect()
+	end
+
+	if IsSpinning then
+
+		SpinBtn.Text = "🛑 Stop Spin"
+
+		SpinConnection = RunService.Heartbeat:Connect(function()
+
+			local char = Player.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+			if hrp then
+				hrp.CFrame *= CFrame.Angles(0,math.rad(SpinSpeed),0)
+			end
+		end)
+
+	else
+		SpinBtn.Text = "🔄 Spin"
+	end
+end)
+
+--// Speed Box
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Parent = Container
+SpeedBox.Size = UDim2.new(1,0,0,38)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(35,35,35)
+SpeedBox.Text = tostring(SpinSpeed)
+SpeedBox.PlaceholderText = "Spin Speed..."
+SpeedBox.TextColor3 = Color3.new(1,1,1)
+SpeedBox.Font = Enum.Font.Gotham
+SpeedBox.TextSize = 14
+SpeedBox.BorderSizePixel = 0
+
+Instance.new("UICorner",SpeedBox).CornerRadius = UDim.new(0,10)
+
+SpeedBox.FocusLost:Connect(function()
+	SpinSpeed = tonumber(SpeedBox.Text) or 50
+end)
+
+--// Lay Button (FIX)
+local LayBtn = CreateButton("🛌 Lay",Color3.fromRGB(52,199,89))
+LayBtn.Parent = Container
+
+ClickEffect(LayBtn,function()
+
+	local char = Player.Character
+	if not char then return end
+
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+
+	if humanoid then
+		humanoid.Sit = true
+	end
+end)
+
+--// Noclip
+local NoclipBtn = CreateButton("👻 Noclip",Color3.fromRGB(175,82,222))
+NoclipBtn.Parent = Container
+
+ClickEffect(NoclipBtn,function()
+
+	Noclip = not Noclip
+
+	if Noclip then
+
+		NoclipBtn.Text = "🚫 Clip On"
+
+		NoclipConnection = RunService.Stepped:Connect(function()
+
+			local char = Player.Character
+
+			if char then
+				for _,v in pairs(char:GetDescendants()) do
+					if v:IsA("BasePart") then
+						v.CanCollide = false
+					end
+				end
+			end
+		end)
+
+	else
+
+		NoclipBtn.Text = "👻 Noclip"
+
+		if NoclipConnection then
+			NoclipConnection:Disconnect()
+		end
+	end
+end)
+
+--// Rainbow Border
+task.spawn(function()
+
+	while task.wait() do
+
+		local hue = tick()%5/5
+
+		ToggleStroke.Color = Color3.fromHSV(hue,1,1)
+		Stroke.Color = Color3.fromHSV(hue,1,1)
+	end
+end)
