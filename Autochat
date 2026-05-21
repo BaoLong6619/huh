@@ -1,0 +1,356 @@
+-- [[ CHI TIẾT ĐẦY ĐỦ ]] 📜
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Ngăn chặn trùng lặp GUI
+if CoreGui:FindFirstChild("LongBeo_ChatAuto") then
+    CoreGui:FindFirstChild("LongBeo_ChatAuto"):Destroy()
+end
+
+-- Khởi tạo ScreenGui (Chức năng không reset khi dead + Biến cao nhất)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeo_ChatAuto"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999999
+
+-- Khởi tạo cấu trúc lưu trữ tin nhắn vào bộ nhớ (Memory)
+local MessageStorage = {}
+local FILE_NAME = "LongBeo_ChatConfig.json"
+
+local function loadMessages()
+    if isfile and readfile then
+        if isfile(FILE_NAME) then
+            local success, data = pcall(function()
+                return HttpService:JSONDecode(readfile(FILE_NAME))
+            end)
+            if success and type(data) == "table" then
+                MessageStorage = data
+                return
+            end
+        end
+    end
+    MessageStorage = {"Xin chào!", "Long Béo Hub VIP!", "Auto Chat One-Click"}
+end
+
+local function saveMessages()
+    if writefile then
+        pcall(function()
+            writefile(FILE_NAME, HttpService:JSONEncode(MessageStorage))
+        end)
+    end
+end
+
+loadMessages()
+
+-- Hàm kéo thả mượt mà, không loạn xạ cho GUI và Nút lẻ
+local function makeDraggable(gui)
+    local dragging, dragInput, dragStart, startPos
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            TweenService:Create(gui, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            }):Play()
+        end
+    end)
+end
+
+-- ==================== NÚT LẺ LONG BÉO (ẨN/HIỆN GUI) ====================
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "LongBeo_Toggle"
+ToggleButton.Parent = ScreenGui
+ToggleButton.Size = UDim2.new(0, 100, 0, 40)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.2, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+ToggleButton.Text = "ℹ️ long béo"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextSize = 16
+ToggleButton.BorderSizePixel = 0
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = ToggleButton
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(0, 170, 255)
+ToggleStroke.Thickness = 1.5
+ToggleStroke.Parent = ToggleButton
+
+makeDraggable(ToggleButton)
+
+-- ==================== KHUNG GUI CHÍNH LONG BÉO ====================
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "LongBeo_Main"
+MainFrame.Parent = ScreenGui
+MainFrame.Size = UDim2.new(0, 450, 0, 320)
+MainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(45, 45, 50)
+MainStroke.Thickness = 2
+MainStroke.Parent = MainFrame
+
+makeDraggable(MainFrame)
+
+-- Tiêu đề GUI chính
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Parent = MainFrame
+TitleLabel.Size = UDim2.new(1, 0, 0, 35)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+TitleLabel.Text = "  🔥 long béo - HỆ THỐNG AUTO CHAT"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.TextSize = 16
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleLabel
+
+-- Xử lý ẩn/hiện bằng nút lẻ
+ToggleButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- ==================== PHÂN CHIA TÁB (TABS) ====================
+local TabContainer = Instance.new("Frame")
+TabContainer.Parent = MainFrame
+TabContainer.Size = UDim2.new(0, 120, 1, -35)
+TabContainer.Position = UDim2.new(0, 0, 0, 35)
+TabContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+TabContainer.BorderSizePixel = 0
+
+local TabList = Instance.new("UIListLayout")
+TabList.Parent = TabContainer
+TabList.SortOrder = Enum.SortOrder.LayoutOrder
+TabList.Padding = UDim.new(0, 5)
+
+local PageContainer = Instance.new("Frame")
+PageContainer.Parent = MainFrame
+PageContainer.Size = UDim2.new(1, -125, 1, -40)
+PageContainer.Position = UDim2.new(0, 125, 0, 35)
+PageContainer.BackgroundTransparency = 1
+
+local Pages = {}
+local function CreateTab(name, isDefault)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(1, -10, 0, 35)
+    TabButton.BackgroundColor3 = isDefault and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(40, 40, 45)
+    TabButton.Text = name
+    TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TabButton.Font = Enum.Font.SourceSansBold
+    TabButton.TextSize = 14
+    TabButton.Parent = TabContainer
+    
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 6)
+    ButtonCorner.Parent = TabButton
+
+    local Page = Instance.new("ScrollingFrame")
+    Page.Size = UDim2.new(1, 0, 1, 0)
+    Page.BackgroundTransparency = 1
+    Page.CanvasSize = UDim2.new(0, 0, 2, 0)
+    Page.ScrollBarThickness = 4
+    Page.Visible = isDefault
+    Page.Parent = PageContainer
+    
+    local PageList = Instance.new("UIListLayout")
+    PageList.Parent = Page
+    PageList.SortOrder = Enum.SortOrder.LayoutOrder
+    PageList.Padding = UDim.new(0, 8)
+
+    TabButton.MouseButton1Click:Connect(function()
+        for _, p in pairs(Pages) do p.Visible = false end
+        for _, btn in pairs(TabContainer:GetChildren()) do
+            if btn:IsA("TextButton") then btn.BackgroundColor3 = Color3.fromRGB(40, 40, 45) end
+        end
+        Page.Visible = true
+        TabButton.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    end)
+
+    Pages[name] = Page
+    return Page
+end
+
+local ChatTab = CreateTab("💬 Gửi Chat", true)
+local ManageTab = CreateTab("⚙️ Quản Lý", false)
+
+-- Hàm gửi tin nhắn chuẩn đa nền tảng Roblox
+local function SendChatMessage(text)
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local channel = TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+        if channel then
+            channel:SendAsync(text)
+        end
+    else
+        local remote = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") and ReplicatedStorage.DefaultChatSystemChatEvents:FindFirstChild("SayMessageRequest")
+        if remote then
+            remote:FireServer(text, "All")
+        end
+    end
+end
+
+-- ==================== TAB 1: GỬI CHAT (BUTTON DÙNG 1 LẦN) ====================
+local function RefreshChatTab()
+    ChatTab:ClearAllChildren()
+    local PageList = Instance.new("UIListLayout")
+    PageList.Parent = ChatTab
+    PageList.SortOrder = Enum.SortOrder.LayoutOrder
+    PageList.Padding = UDim.new(0, 6)
+
+    for i, msg in ipairs(MessageStorage) do
+        local MsgButton = Instance.new("TextButton")
+        MsgButton.Size = UDim2.new(1, -10, 0, 35)
+        MsgButton.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        MsgButton.Text = "⚡ " .. msg
+        MsgButton.TextColor3 = Color3.fromRGB(230, 230, 230)
+        MsgButton.Font = Enum.Font.SourceSans
+        MsgButton.TextSize = 15
+        MsgButton.TextXAlignment = Enum.TextXAlignment.Left
+        MsgButton.Parent = ChatTab
+
+        local MsgCorner = Instance.new("UICorner")
+        MsgCorner.CornerRadius = UDim.new(0, 5)
+        MsgCorner.Parent = MsgButton
+
+        -- Click gửi ngay lập tức
+        MsgButton.MouseButton1Click:Connect(function()
+            SendChatMessage(msg)
+        end)
+    end
+end
+
+-- ==================== TAB 2: QUẢN LÝ TIN NHẮN (TẠO / XÓA) ====================
+local function RefreshManageTab()
+    ManageTab:ClearAllChildren()
+    local PageList = Instance.new("UIListLayout")
+    PageList.Parent = ManageTab
+    PageList.SortOrder = Enum.SortOrder.LayoutOrder
+    PageList.Padding = UDim.new(0, 8)
+
+    -- Ô Nhập tin nhắn mới
+    local InputBox = Instance.new("TextBox")
+    InputBox.Size = UDim2.new(1, -10, 0, 35)
+    InputBox.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    InputBox.Text = ""
+    InputBox.PlaceholderText = "✍️ Nhập tin nhắn muốn thêm vào đây..."
+    InputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InputBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+    InputBox.Font = Enum.Font.SourceSans
+    InputBox.TextSize = 14
+    InputBox.Parent = ManageTab
+    
+    local InputCorner = Instance.new("UICorner")
+    InputCorner.CornerRadius = UDim.new(0, 5)
+    InputCorner.Parent = InputBox
+
+    -- Nút Thêm tin nhắn (Button dùng 1 lần)
+    local AddButton = Instance.new("TextButton")
+    AddButton.Size = UDim2.new(1, -10, 0, 35)
+    AddButton.BackgroundColor3 = Color3.fromRGB(0, 150, 70)
+    AddButton.Text = "➕ THÊM TIN NHẮN MỚI"
+    AddButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AddButton.Font = Enum.Font.SourceSansBold
+    AddButton.TextSize = 14
+    AddButton.Parent = ManageTab
+
+    local AddCorner = Instance.new("UICorner")
+    AddCorner.CornerRadius = UDim.new(0, 5)
+    AddCorner.Parent = AddButton
+
+    AddButton.MouseButton1Click:Connect(function()
+        if InputBox.Text ~= "" and InputBox.Text ~= " " then
+            table.insert(MessageStorage, InputBox.Text)
+            saveMessages()
+            InputBox.Text = ""
+            RefreshChatTab()
+            RefreshManageTab()
+        end
+    end)
+
+    -- Phân tách danh sách xóa
+    local Line = Instance.new("Frame")
+    Line.Size = UDim2.new(1, -10, 0, 1)
+    Line.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    Line.Parent = ManageTab
+
+    -- Hiển thị danh sách kèm nút xóa nhanh
+    for i, msg in ipairs(MessageStorage) do
+        local ItemFrame = Instance.new("Frame")
+        ItemFrame.Size = UDim2.new(1, -10, 0, 35)
+        ItemFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        ItemFrame.Parent = ManageTab
+
+        local ItemCorner = Instance.new("UICorner")
+        ItemCorner.CornerRadius = UDim.new(0, 5)
+        ItemCorner.Parent = ItemFrame
+
+        local TextLabel = Instance.new("TextLabel")
+        TextLabel.Size = UDim2.new(1, -50, 1, 0)
+        TextLabel.Position = UDim2.new(0, 10, 0, 0)
+        TextLabel.BackgroundTransparency = 1
+        TextLabel.Text = msg
+        TextLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        TextLabel.Font = Enum.Font.SourceSans
+        TextLabel.TextSize = 14
+        TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TextLabel.Parent = ItemFrame
+
+        local DelButton = Instance.new("TextButton")
+        DelButton.Size = UDim2.new(0, 40, 1, 0)
+        DelButton.Position = UDim2.new(1, -40, 0, 0)
+        DelButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        DelButton.Text = "❌"
+        DelButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        DelButton.Font = Enum.Font.SourceSansBold
+        DelButton.TextSize = 14
+        DelButton.Parent = ItemFrame
+
+        local DelCorner = Instance.new("UICorner")
+        DelCorner.CornerRadius = UDim.new(0, 5)
+        DelCorner.Parent = DelButton
+
+        DelButton.MouseButton1Click:Connect(function()
+            table.remove(MessageStorage, i)
+            saveMessages()
+            RefreshChatTab()
+            RefreshManageTab()
+        end)
+    end
+end
+
+-- Tải dữ liệu giao diện ban đầu
+RefreshChatTab()
+RefreshManageTab()
