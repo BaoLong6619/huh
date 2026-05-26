@@ -1,0 +1,101 @@
+--// LONG BÉO MINI FOLLOW GUI
+
+local P=game:GetService("Players")
+local R=game:GetService("RunService")
+local L=P.LocalPlayer
+
+local T=nil
+local F=false
+local D=5
+
+local G=Instance.new("ScreenGui",game.CoreGui)
+
+local M=Instance.new("Frame",G)
+M.Size=UDim2.new(0,135,0,115)
+M.Position=UDim2.new(0.43,0,0.3,0)
+M.BackgroundColor3=Color3.fromRGB(30,30,30)
+M.Active=true
+M.Draggable=true
+Instance.new("UICorner",M).CornerRadius=UDim.new(0,9)
+
+local Lb=Instance.new("TextLabel",M)
+Lb.Size=UDim2.new(1,0,0,18)
+Lb.BackgroundTransparency=1
+Lb.Text="None"
+Lb.TextScaled=true
+Lb.TextColor3=Color3.new(1,1,1)
+
+local S=Instance.new("TextButton",M)
+S.Size=UDim2.new(0.88,0,0,24)
+S.Position=UDim2.new(0.06,0,0.22,0)
+S.Text="Select"
+S.TextScaled=true
+S.BackgroundColor3=Color3.fromRGB(0,120,255)
+S.TextColor3=Color3.new(1,1,1)
+Instance.new("UICorner",S).CornerRadius=UDim.new(0,7)
+
+local B=Instance.new("TextBox",M)
+B.Size=UDim2.new(0.35,0,0,20)
+B.Position=UDim2.new(0.325,0,0.52,0)
+B.Text="3"
+B.PlaceholderText="Stud"
+B.TextScaled=true
+B.BackgroundColor3=Color3.fromRGB(50,50,50)
+B.TextColor3=Color3.new(1,1,1)
+Instance.new("UICorner",B).CornerRadius=UDim.new(0,6)
+
+local TP=Instance.new("TextButton",M)
+TP.Size=UDim2.new(0.88,0,0,24)
+TP.Position=UDim2.new(0.06,0,0.74,0)
+TP.Text="OFF"
+TP.TextScaled=true
+TP.BackgroundColor3=Color3.fromRGB(170,0,0)
+TP.TextColor3=Color3.new(1,1,1)
+Instance.new("UICorner",TP).CornerRadius=UDim.new(0,7)
+
+B.FocusLost:Connect(function()
+	local n=tonumber(B.Text)
+	if n then
+		D=n
+	else
+		B.Text=tostring(D)
+	end
+end)
+
+S.MouseButton1Click:Connect(function()
+	local m=L:GetMouse()
+	local c
+
+	c=m.Button1Down:Connect(function()
+		local t=m.Target
+
+		if t then
+			local ch=t:FindFirstAncestorOfClass("Model")
+			local p=P:GetPlayerFromCharacter(ch)
+
+			if p and p~=L then
+				T=p
+				Lb.Text=p.Name
+				c:Disconnect()
+			end
+		end
+	end)
+end)
+
+TP.MouseButton1Click:Connect(function()
+	F=not F
+	TP.Text=F and "ON" or "OFF"
+	TP.BackgroundColor3=F and Color3.fromRGB(0,170,80) or Color3.fromRGB(170,0,0)
+end)
+
+R.Heartbeat:Connect(function()
+	if F and T
+	and T.Character
+	and T.Character:FindFirstChild("HumanoidRootPart")
+	and L.Character
+	and L.Character:FindFirstChild("HumanoidRootPart") then
+
+		L.Character.HumanoidRootPart.CFrame=
+			T.Character.HumanoidRootPart.CFrame*CFrame.new(0,0,D)
+	end
+end)
