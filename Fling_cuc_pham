@@ -1,0 +1,510 @@
+
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local Player = Players.LocalPlayer
+
+-- Global Variables
+getgenv().OldPos = nil
+getgenv().FPDH = workspace.FallenPartsDestroyHeight
+
+-- GUI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KilasikFlingGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- Toggle Button
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+ToggleButton.Text = "≡"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 28
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Parent = ScreenGui
+ToggleButton.Active = true
+ToggleButton.Draggable = true
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(1, 0)
+ToggleCorner.Parent = ToggleButton
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 320, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+MainFrame.BackgroundTransparency = 1
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Real GUI Content Frame
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, 0, 1, 0)
+ContentFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.BorderSizePixel = 0
+ContentFrame.Parent = MainFrame
+
+-- Real Background
+local RealBg = Instance.new("Frame")
+RealBg.Size = UDim2.new(1, 0, 1, 0)
+RealBg.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+RealBg.BorderSizePixel = 0
+RealBg.Parent = ContentFrame
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = RealBg
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = RealBg
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleBar
+
+-- Title Text
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.5, 0, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "long béo"
+Title.TextColor3 = Color3.fromRGB(255, 80, 80)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
+
+-- Close Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Position = UDim2.new(1, -35, 0, 2)
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CloseButton.BorderSizePixel = 0
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextSize = 16
+CloseButton.Parent = TitleBar
+local CBCorner = Instance.new("UICorner")
+CBCorner.CornerRadius = UDim.new(0, 6)
+CBCorner.Parent = CloseButton
+
+-- Tabs System Navigation
+local TabContainer = Instance.new("Frame")
+TabContainer.Position = UDim2.new(0, 0, 0, 35)
+TabContainer.Size = UDim2.new(1, 0, 0, 30)
+TabContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TabContainer.BorderSizePixel = 0
+TabContainer.Parent = RealBg
+
+local FlingTabButton = Instance.new("TextButton")
+FlingTabButton.Size = UDim2.new(0.5, 0, 1, 0)
+FlingTabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+FlingTabButton.BorderSizePixel = 0
+FlingTabButton.Text = "🎯 Fling Target"
+FlingTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlingTabButton.Font = Enum.Font.SourceSansBold
+FlingTabButton.TextSize = 14
+FlingTabButton.Parent = TabContainer
+
+local BoostTabButton = Instance.new("TextButton")
+BoostTabButton.Size = UDim2.new(0.5, 0, 1, 0)
+BoostTabButton.Position = UDim2.new(0.5, 0, 0, 0)
+BoostTabButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+BoostTabButton.BorderSizePixel = 0
+BoostTabButton.Text = "🚀 Ultra Booster"
+BoostTabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
+BoostTabButton.Font = Enum.Font.SourceSansBold
+BoostTabButton.TextSize = 14
+BoostTabButton.Parent = TabContainer
+
+-- Pages Container
+local FlingPage = Instance.new("Frame")
+FlingPage.Size = UDim2.new(1, 0, 1, -65)
+FlingPage.Position = UDim2.new(0, 0, 0, 65)
+FlingPage.BackgroundTransparency = 1
+FlingPage.Parent = RealBg
+
+local BoostPage = Instance.new("Frame")
+BoostPage.Size = UDim2.new(1, 0, 1, -65)
+BoostPage.Position = UDim2.new(0, 0, 0, 65)
+BoostPage.BackgroundTransparency = 1
+BoostPage.Visible = false
+BoostPage.Parent = RealBg
+
+-- Tab switching logic
+FlingTabButton.MouseButton1Click:Connect(function()
+    FlingPage.Visible = true
+    BoostPage.Visible = false
+    FlingTabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    FlingTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BoostTabButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    BoostTabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
+end)
+
+BoostTabButton.MouseButton1Click:Connect(function()
+    FlingPage.Visible = false
+    BoostPage.Visible = true
+    BoostTabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    BoostTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FlingTabButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    FlingTabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
+end)
+
+-- Toggle Main Visibility Logic
+local Visible = true
+ToggleButton.MouseButton1Click:Connect(function()
+    Visible = not Visible
+    ContentFrame.Visible = Visible
+    ToggleButton.BackgroundColor3 = Visible and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(80, 255, 80)
+end)
+
+------------------- [FLING PAGE ELEMENTS] -------------------
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Position = UDim2.new(0, 12, 0, 5)
+StatusLabel.Size = UDim2.new(1, -60, 0, 25)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Select targets to fling"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.Font = Enum.Font.SourceSans
+StatusLabel.TextSize = 15
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = FlingPage
+
+-- Kính lúp (Search Button) 🔍
+local SearchButton = Instance.new("TextButton")
+SearchButton.Size = UDim2.new(0, 25, 0, 25)
+SearchButton.Position = UDim2.new(1, -37, 0, 5)
+SearchButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SearchButton.Text = "🔍"
+SearchButton.TextSize = 14
+SearchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchButton.Parent = FlingPage
+local SBCorn = Instance.new("UICorner")
+SBCorn.CornerRadius = UDim.new(0, 6)
+SBCorn.Parent = SearchButton
+
+-- Textbox Tìm Kiếm ⌨️
+local SearchTextBox = Instance.new("TextBox")
+SearchTextBox.Size = UDim2.new(1, -24, 0, 30)
+SearchTextBox.Position = UDim2.new(0, 12, 0, 35)
+SearchTextBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+SearchTextBox.BorderSizePixel = 0
+SearchTextBox.Text = ""
+SearchTextBox.PlaceholderText = "Nhập tên người chơi cần tìm..."
+SearchTextBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+SearchTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchTextBox.Font = Enum.Font.SourceSans
+SearchTextBox.TextSize = 14
+SearchTextBox.Visible = false
+SearchTextBox.Parent = FlingPage
+local STBCorn = Instance.new("UICorner")
+STBCorn.CornerRadius = UDim.new(0, 6)
+STBCorn.Parent = SearchTextBox
+
+-- Toggle Textbox hiển thị khi nhấn kính lúp
+SearchButton.MouseButton1Click:Connect(function()
+    SearchTextBox.Visible = not SearchTextBox.Visible
+end)
+
+-- Selection Frame (Sẽ tự động co giãn toạ độ Y khi Textbox ẩn/hiện)
+local SelectionFrame = Instance.new("Frame")
+SelectionFrame.Position = UDim2.new(0, 12, 0, 35)
+SelectionFrame.Size = UDim2.new(1, -24, 0, 185)
+SelectionFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+SelectionFrame.BorderSizePixel = 0
+SelectionFrame.Parent = FlingPage
+local SelectionCorner = Instance.new("UICorner")
+SelectionCorner.CornerRadius = UDim.new(0, 8)
+SelectionCorner.Parent = SelectionFrame
+
+-- Theo dõi vị trí khung danh sách khi textbox ẩn/hiện để không đè nhau
+SearchTextBox:GetPropertyChangedSignal("Visible"):Connect(function()
+    if SearchTextBox.Visible then
+        SelectionFrame.Position = UDim2.new(0, 12, 0, 70)
+        SelectionFrame.Size = UDim2.new(1, -24, 0, 150)
+    else
+        SelectionFrame.Position = UDim2.new(0, 12, 0, 35)
+        SelectionFrame.Size = UDim2.new(1, -24, 0, 185)
+    end
+end)
+
+-- Scroll Frame
+local PlayerScrollFrame = Instance.new("ScrollingFrame")
+PlayerScrollFrame.Position = UDim2.new(0, 5, 0, 5)
+PlayerScrollFrame.Size = UDim2.new(1, -10, 1, -10)
+PlayerScrollFrame.BackgroundTransparency = 1
+PlayerScrollFrame.BorderSizePixel = 0
+PlayerScrollFrame.ScrollBarThickness = 6
+PlayerScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+PlayerScrollFrame.Selectable = true
+PlayerScrollFrame.Active = true
+PlayerScrollFrame.Parent = SelectionFrame
+
+-- UI List Layout
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = PlayerScrollFrame
+UIListLayout.SortOrder = Enum.SortOrder.Name
+UIListLayout.Padding = UDim.new(0, 5)
+
+-- Start Button
+local StartButton = Instance.new("TextButton")
+StartButton.Position = UDim2.new(0, 12, 0, 230)
+StartButton.Size = UDim2.new(0.5, -17, 0, 40)
+StartButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+StartButton.BorderSizePixel = 0
+StartButton.Text = "START FLING"
+StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartButton.Font = Enum.Font.SourceSansBold
+StartButton.TextSize = 18
+StartButton.Parent = FlingPage
+local StartCorner = Instance.new("UICorner")
+StartCorner.CornerRadius = UDim.new(0, 8)
+StartCorner.Parent = StartButton
+
+-- Stop Button
+local StopButton = Instance.new("TextButton")
+StopButton.Position = UDim2.new(0.5, 5, 0, 230)
+StopButton.Size = UDim2.new(0.5, -17, 0, 40)
+StopButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+StopButton.BorderSizePixel = 0
+StopButton.Text = "STOP FLING"
+StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopButton.Font = Enum.Font.SourceSansBold
+StopButton.TextSize = 18
+StopButton.Parent = FlingPage
+local StopCorner = Instance.new("UICorner")
+StopCorner.CornerRadius = UDim.new(0, 8)
+StopCorner.Parent = StopButton
+
+
+------------------- [ULTRA BOOSTER PAGE ELEMENTS] -------------------
+local BoostTitle = Instance.new("TextLabel")
+BoostTitle.Position = UDim2.new(0, 12, 0, 10)
+BoostTitle.Size = UDim2.new(1, -24, 0, 25)
+BoostTitle.BackgroundTransparency = 1
+BoostTitle.Text = "Game Optimization & Network Boost"
+BoostTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+BoostTitle.Font = Enum.Font.SourceSansBold
+BoostTitle.TextSize = 16
+BoostTitle.TextXAlignment = Enum.TextXAlignment.Left
+BoostTitle.Parent = BoostPage
+
+-- Opt 1: Clean Memory / Boost FPS
+local CleanMemButton = Instance.new("TextButton")
+CleanMemButton.Position = UDim2.new(0, 12, 0, 45)
+CleanMemButton.Size = UDim2.new(1, -24, 0, 40)
+CleanMemButton.BackgroundColor3 = Color3.fromRGB(230, 126, 34)
+CleanMemButton.BorderSizePixel = 0
+CleanMemButton.Text = "⚡ CLEAN MEMORY & RAM (BOOST FPS)"
+CleanMemButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CleanMemButton.Font = Enum.Font.SourceSansBold
+CleanMemButton.TextSize = 14
+CleanMemButton.Parent = BoostPage
+local CMCorn = Instance.new("UICorner")
+CMCorn.CornerRadius = UDim.new(0, 6)
+CMCorn.Parent = CleanMemButton
+
+-- Opt 2: Anti-Lag Graphics Mode
+local AntiLagActive = false
+local AntiLagButton = Instance.new("TextButton")
+AntiLagButton.Position = UDim2.new(0, 12, 0, 95)
+AntiLagButton.Size = UDim2.new(1, -24, 0, 40)
+AntiLagButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+AntiLagButton.BorderSizePixel = 0
+AntiLagButton.Text = "❌ ANTI-LAG GRAPHICS (OFF)"
+AntiLagButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AntiLagButton.Font = Enum.Font.SourceSansBold
+AntiLagButton.TextSize = 14
+AntiLagButton.Parent = BoostPage
+local ALCorn = Instance.new("UICorner")
+ALCorn.CornerRadius = UDim.new(0, 6)
+ALCorn.Parent = AntiLagButton
+
+-- Opt 3: Network Ping Stabilizer
+local PingStabilizerActive = false
+local PingButton = Instance.new("TextButton")
+PingButton.Position = UDim2.new(0, 12, 0, 145)
+PingButton.Size = UDim2.new(1, -24, 0, 40)
+PingButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+PingButton.BorderSizePixel = 0
+PingButton.Text = "❌ PING STABILIZER (OFF)"
+PingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+PingButton.Font = Enum.Font.SourceSansBold
+PingButton.TextSize = 14
+PingButton.Parent = BoostPage
+local PBCorn = Instance.new("UICorner")
+PBCorn.CornerRadius = UDim.new(0, 6)
+PBCorn.Parent = PingButton
+
+
+-- Variables Logic
+local SelectedTargets = {}
+local FlingActive = false
+local IsRunning = true
+local SearchText = ""
+
+-- Notification Center
+local function Message(TxtTitle, TxtText, Time)
+    StarterGui:SetCore("SendNotification", {
+        Title = TxtTitle,
+        Text = TxtText,
+        Duration = Time or 5
+    })
+end
+
+-- Count Targets
+local function CountSelectedTargets()
+    local count = 0
+    for _ in pairs(SelectedTargets) do
+        count += 1
+    end
+    return count
+end
+
+-- Update Status UI
+local function UpdateStatus()
+    local count = CountSelectedTargets()
+    if FlingActive then
+        StatusLabel.Text = "🎯 Flinging target..."
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    else
+        StatusLabel.Text = count .. " target selected"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end
+
+-- Stop Fling Function
+local function StopFling()
+    if not FlingActive then return end
+    FlingActive = false
+    UpdateStatus()
+    Message("Stopped", "Fling has been stopped", 2)
+end
+
+-- Refresh Player List WITHOUT Resetting Entire UI
+local function UpdatePlayerListNonDestructive()
+    local currentPlayers = {}
+    local filter = SearchText:lower()
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Player then
+            local pName = player.Name:lower()
+            local pDisplayName = player.DisplayName:lower()
+            
+            if filter == "" or pName:find(filter, 1, true) or pDisplayName:find(filter, 1, true) then
+                currentPlayers[player.Name] = true
+                local existingButton = PlayerScrollFrame:FindFirstChild(player.Name)
+                
+                if not existingButton then
+                    local Entry = Instance.new("TextButton")
+                    Entry.Name = player.Name
+                    Entry.Size = UDim2.new(1, -10, 0, 42)
+                    Entry.BackgroundColor3 = SelectedTargets[player.Name] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+                    Entry.Text = ""
+                    Entry.AutoButtonColor = true
+                    Entry.Parent = PlayerScrollFrame
+
+                    local Corner = Instance.new("UICorner")
+                    Corner.CornerRadius = UDim.new(0, 6)
+                    Corner.Parent = Entry
+
+                    -- Display Name
+                    local DisplayNameLabel = Instance.new("TextLabel")
+                    DisplayNameLabel.Size = UDim2.new(1, -75, 0, 20)
+                    DisplayNameLabel.Position = UDim2.new(0, 8, 0, 3)
+                    DisplayNameLabel.BackgroundTransparency = 1
+                    DisplayNameLabel.Text = player.DisplayName
+                    DisplayNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    DisplayNameLabel.Font = Enum.Font.SourceSansBold
+                    DisplayNameLabel.TextSize = 15
+                    DisplayNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    DisplayNameLabel.Parent = Entry
+
+                    -- Username với dấu @
+                    local UsernameLabel = Instance.new("TextLabel")
+                    UsernameLabel.Size = UDim2.new(1, -75, 0, 16)
+                    UsernameLabel.Position = UDim2.new(0, 8, 0, 21)
+                    UsernameLabel.BackgroundTransparency = 1
+                    UsernameLabel.Text = "@" .. player.Name
+                    UsernameLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+                    UsernameLabel.Font = Enum.Font.SourceSans
+                    UsernameLabel.TextSize = 12
+                    UsernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    UsernameLabel.Parent = Entry
+
+                    -- Avatar bên phải 🖼️👉
+                    local AvatarImg = Instance.new("ImageLabel")
+                    AvatarImg.Size = UDim2.new(0, 30, 0, 30)
+                    AvatarImg.Position = UDim2.new(1, -36, 0.5, -15)
+                    AvatarImg.BackgroundTransparency = 1
+                    pcall(function()
+                        AvatarImg.Image = Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+                    end)
+                    AvatarImg.Parent = Entry
+
+                    local AvatarCorner = Instance.new("UICorner")
+                    AvatarCorner.CornerRadius = UDim.new(0, 4)
+                    AvatarCorner.Parent = AvatarImg
+
+                    Entry.MouseButton1Click:Connect(function()
+                        if SelectedTargets[player.Name] then
+                            SelectedTargets[player.Name] = nil
+                            Entry.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                        else
+                            table.clear(SelectedTargets)
+                            SelectedTargets[player.Name] = player
+                            
+                            for _, child in pairs(PlayerScrollFrame:GetChildren()) do
+                                if child:IsA("TextButton") then
+                                    child.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                                end
+                            end
+                            Entry.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+                        end
+                        
+                        SearchTextBox.Text = ""
+                        SearchText = ""
+                        SearchTextBox.Visible = false
+                        UpdateStatus()
+                    end)
+                else
+                    existingButton.BackgroundColor3 = SelectedTargets[player.Name] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+                end
+            end
+        end
+    end
+    
+    for _, child in pairs(PlayerScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") and not currentPlayers[child.Name] then
+            child:Destroy()
+        end
+    end
+    
+    PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+end
+
+-- Lắng nghe TextBox
+SearchTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+    SearchText = SearchTextBox.Text
+    UpdatePlayerListNonDestructive()
+end)
+
+-- BÊ Y NGUYÊN GỐC HÀM FLING CỦA SCRIPT 1 (FIXED ĐẦY ĐỦ LOGIC)
+local function SkidFling(TargetPlayer)
+    local Character = Player.Character
+    local Humanoid = Character and Character:FindF
