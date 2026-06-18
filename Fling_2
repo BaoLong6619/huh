@@ -1,0 +1,317 @@
+-- Khởi tạo hoặc tái sử dụng biến toàn cục cao nhất để tránh bị che khuất và chống reset khi dead
+if _G.LongBeoHUBLoaded and _G.LongBeoMainGui then
+    _G.LongBeoMainGui:Destroy()
+end
+_G.LongBeoHUBLoaded = true
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- Tạo Window với tên rõ ràng "long béo"
+local Window = Rayfield:CreateWindow({
+   Name = "long béo",
+   LoadingTitle = "long béo Fling",
+   LoadingSubtitle = "by deta",
+   ConfigurationSaving = { Enabled = false }, KeySystem = false
+})
+
+-- Tìm ScreenGui chính của Rayfield để xử lý tùy biến nâng cao (Biến cao nhất)
+local CoreGui = game:GetService("CoreGui")
+local RayfieldGui = CoreGui:FindFirstChild("Rayfield") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Rayfield")
+if RayfieldGui then
+    RayfieldGui.DisplayOrder = 999999 -- Đảm bảo ở lớp cao nhất
+    _G.LongBeoMainGui = RayfieldGui
+end
+
+-- Tìm khung chính của Rayfield để quản lý kéo thả đồng bộ
+local MainFrame = nil
+if RayfieldGui then
+    MainFrame = RayfieldGui:FindFirstChild("Main") or RayfieldGui:FindFirstChildOfClass("Frame")
+end
+
+-- Logic Fling gốc (Giữ nguyên 100% không đổi)
+local MainTab = Window:CreateTab("Script: gui", nil) -- Tên Tab đúng chuẩn yêu cầu
+local targetName = ""
+local loopFlingAllActive = false
+local loopFlingTargetActive = false
+local incognitoMode = false
+local playerList = {}
+
+local function updatePlayerList()
+    playerList = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then table.insert(playerList, p.DisplayName .. " (@" .. p.Name .. ")") end
+    end
+    return playerList
+end
+
+local function getPlayerFromSelection(selection)
+    if not selection or selection == "" then return nil end
+    return Players:FindFirstChild(selection:match("@(%w+)"))
+end
+
+local function executeFling(target)
+    if not target or not Players:FindFirstChild(target.Name) or not target.Character then return end
+    
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local thrp = target.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not thrp then return end
+    
+    local savedPos = hrp.Position
+    local savedRot = hrp.CFrame - hrp.Position
+    local camera = workspace.CurrentCamera
+    
+    Rayfield:Notify({ Title = "Flinged sucsessful", Content = target.DisplayName .. " Has Flinged", Duration = 2 })
+    camera.CameraSubject = target.Character:FindFirstChild("Humanoid") or thrp
+
+    local startT = tick()
+    local endT = startT + 8
+    local leftEarly = false
+
+    local originalColors = {}
+    local hiddenClothing = {}
+
+    if incognitoMode and char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                originalColors[part] = part.Color
+                part.Color = Color3.fromRGB(0, 0, 0)
+            end
+        end
+
+        for _, obj in ipairs(char:GetChildren()) do
+            if obj:IsA("Accessory") or obj:IsA("Shirt") or obj:IsA("Pants") or obj:IsA("ShirtGraphic") or obj:IsA("CharacterMesh") then
+                table.insert(hiddenClothing, obj)
+                obj.Parent = nil
+            end
+        end
+    end
+
+    local noclipLoop
+    noclipLoop = RunService.Stepped:Connect(function()
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+
+    while tick() < endT do
+        if not Players:FindFirstChild(target.Name) or not thrp or not thrp.Parent then
+            leftEarly = true
+            break
+        end
+        
+        local elapsed = tick() - startT
+        local style = math.floor(elapsed) % 3
+        local alpha = (math.sin(tick() * 100000000) + 1) / 2
+        
+        local pos1, pos2
+        if style == 0 then
+            pos1 = thrp.CFrame * CFrame.new(-8, 0, 0) 
+            pos2 = thrp.CFrame * CFrame.new(8, 0, 0)  
+        elseif style == 1 then
+            pos1 = thrp.CFrame * CFrame.new(0, 0, 10)  
+            pos2 = thrp.CFrame * CFrame.new(0, 0, -10) 
+        else
+            pos1 = thrp.CFrame * CFrame.new(0, 9, 0)  
+            pos2 = thrp.CFrame * CFrame.new(0, -9, 0) 
+        end
+        
+        local currentLerp = pos1:Lerp(pos2, alpha)
+        hrp.CFrame = CFrame.lookAt(currentLerp.Position, thrp.Position)
+        
+        hrp.Velocity = Vector3.new(950000, 950000, 950000)
+        hrp.RotVelocity = Vector3.new(950000, 950000, 950000)
+        
+        if sethiddenproperty then sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge) end
+        RunService.Heartbeat:Wait()
+    end
+
+    if noclipLoop then noclipLoop:Disconnect() end
+
+    if leftEarly then 
+        Rayfield:Notify({ Title = "Error", Content = "Player left while being flung!", Duration = 3 }) 
+    end
+
+    if hrp and hrp.Parent then
+        camera.CameraSubject = char:FindFirstChild("Humanoid") or hrp
+        
+        hrp.Velocity = Vector3.zero
+        hrp.RotVelocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        
+        hrp.CFrame = savedRot + savedPos
+        hrp.Anchored = true
+        
+        if incognitoMode then
+            for part, color in pairs(originalColors) do
+                if part and part.Parent then part.Color = color end
+            end
+            for _, obj in ipairs(hiddenClothing) do
+                if obj then obj.Parent = char end
+            end
+        end
+        
+        Rayfield:Notify({ Title = "Frezze", Content = "You are frozen for 2.5 seconds to prevent errors.", Duration = 2.5 })
+        task.wait(2.5)
+        
+        hrp.Velocity = Vector3.zero
+        hrp.Anchored = false
+    end
+end
+
+-- Tạo các UI Elements (Menu cũ không đổi)
+local PlayerDropdown = MainTab:CreateDropdown({
+   Name = "Select Target Player",
+   Options = updatePlayerList(),
+   CurrentOption = {""},
+   MultipleOptions = false,
+   Callback = function(Options) targetName = Options[1] end,
+})
+
+Players.PlayerAdded:Connect(function() PlayerDropdown:Refresh(updatePlayerList(), true) end)
+Players.PlayerRemoving:Connect(function() PlayerDropdown:Refresh(updatePlayerList(), true) end)
+
+MainTab:CreateToggle({
+   Name = "Incognito Mode",
+   CurrentValue = false,
+   Callback = function(Value) incognitoMode = Value end,
+})
+
+MainTab:CreateParagraph({
+   Title = "Notes:", 
+   Content = "Incognito mode is a mode that makes your entire Avatar black while flinging, so the server won't know that you are the one flinging."
+})
+
+MainTab:CreateButton({
+   Name = "Fling Target",
+   Callback = function()
+      local p = getPlayerFromSelection(targetName)
+      if p then executeFling(p) else Rayfield:Notify({ Title = "Error", Content = "Select a player first!", Duration = 3 }) end
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Fling Random",
+   Callback = function()
+      local all = {}
+      for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(all, p) end end
+      if #all > 0 then executeFling(all[math.random(1, #all)]) else Rayfield:Notify({ Title = "Error", Content = "No other players!", Duration = 3 }) end
+   end,
+})
+
+MainTab:CreateButton({
+   Name = "Fling All",
+   Callback = function()
+      for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then executeFling(p) end end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Loop Fling All",
+   CurrentValue = false,
+   Callback = function(Value)
+      loopFlingAllActive = Value
+      if loopFlingAllActive then
+          task.spawn(function()
+              while loopFlingAllActive do
+                  for _, p in ipairs(Players:GetPlayers()) do
+                      if not loopFlingAllActive then break end
+                      if p ~= LocalPlayer then executeFling(p) end
+                  end
+                  task.wait(0.5)
+              end
+          end)
+      end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Loop Fling Target",
+   CurrentValue = false,
+   Callback = function(Value)
+      loopFlingTargetActive = Value
+      if loopFlingTargetActive then
+          local p = getPlayerFromSelection(targetName)
+          if not p then
+              loopFlingTargetActive = false
+              Rayfield:Notify({ Title = "Error", Content = "No player selected!", Duration = 3 })
+              return
+          end
+          task.spawn(function()
+              while loopFlingTargetActive do
+                  local target = getPlayerFromSelection(targetName)
+                  if target and Players:FindFirstChild(target.Name) then executeFling(target) else loopFlingTargetActive = false break end
+                  task.wait(0.5)
+              end
+          end)
+      end
+   end,
+})
+
+-- Tạo nút lẻ di chuyển được mang tên "long béo" để ẩn/hiện GUI chính không bị loạn
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "LongBeoShortcut"
+ToggleButton.Size = UDim2.new(0, 100, 0, 40)
+ToggleButton.Position = UDim2.new(0, 20, 0, 20)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Text = "long béo"
+ToggleButton.Font = Enum.Font.SourceSans
+ToggleButton.TextSize = 16
+ToggleButton.BorderSizePixel = 0
+ToggleButton.ZIndex = 1000000
+ToggleButton.Parent = RayfieldGui
+
+-- Bo tròn góc cho nút lẻ đúng chuẩn giao diện đẹp mắt
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = ToggleButton
+
+-- Cơ chế kéo thả mượt mà không loạn cho nút lẻ "long béo"
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+    local delta = input.Position - dragStart
+    ToggleButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+ToggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = ToggleButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+ToggleButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseBehavior or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Sự kiện nhấn nút lẻ để đóng mở Khung chính
+ToggleButton.MouseButton1Click:Connect(function()
+    if MainFrame then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
