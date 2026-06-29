@@ -1,0 +1,231 @@
+--[[
+    Tên Script: Long Béo - Horror God Mode (Hyper Visual)
+    Đặc điểm: Giao diện siêu đẹp, Tách biệt ESP Player/Monster, Auto Boost.
+    Ghi chú: ĐÃ TỐI ƯU HÓA THUẬT TOÁN QUÉT KHÔNG DÙNG GETDESCENDANTS, KHỬ GIẬT TUYỆT ĐỐI!
+]]
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local ProximityService = game:GetService("ProximityPromptService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Khởi tạo ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "long béo"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+
+-- Hàm hỗ trợ làm đẹp
+local function MakeGuiBeautiful(obj, cornerRadius, strokeColor, strokeThickness)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = cornerRadius or UDim.new(0, 15)
+    corner.Parent = obj
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = strokeColor or Color3.fromRGB(0, 255, 150)
+    stroke.Thickness = strokeThickness or 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = obj
+    return stroke
+end
+
+---------------------------------------------------------
+-- NÚT LẺ (THU NHỎ) - PHONG CÁCH NEON
+---------------------------------------------------------
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "long béo"
+ToggleButton.Parent = ScreenGui
+ToggleButton.Size = UDim2.new(0, 110, 0, 40)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.1, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+ToggleButton.Text = "LONG BÉO"
+ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 127)
+ToggleButton.Font = Enum.Font.GothamBlack
+ToggleButton.TextSize = 14
+ToggleButton.AutoButtonColor = false
+ToggleButton.Draggable = true
+ToggleButton.Active = true
+
+local ToggleStroke = MakeGuiBeautiful(ToggleButton, UDim.new(0, 10), Color3.fromRGB(0, 255, 127), 2)
+
+-- Đổi màu mượt mà không gây giật
+task.spawn(function()
+    while task.wait(0.03) do
+        local hue = tick() % 5 / 5
+        ToggleStroke.Color = Color3.fromHSV(hue, 1, 1)
+    end
+end)
+
+---------------------------------------------------------
+-- KHUNG CHÍNH (MAIN GUI) - SIÊU VẺ ĐẸP
+---------------------------------------------------------
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "long béo"
+MainFrame.Parent = ScreenGui
+MainFrame.Size = UDim2.new(0, 350, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BackgroundTransparency = 0.1 -- Hơi trong suốt nhìn cho sang
+MainFrame.Visible = false
+MainFrame.Draggable = true
+MainFrame.Active = true
+
+local MainStroke = MakeGuiBeautiful(MainFrame, UDim.new(0, 20), Color3.fromRGB(255, 255, 255), 2.5)
+
+-- Gradient cho khung chính
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 20)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 40))
+})
+UIGradient.Rotation = 45
+UIGradient.Parent = MainFrame
+
+-- Tiêu đề
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.BackgroundTransparency = 1
+Title.Text = "★ LONG BÉO HORROR ★"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 20
+Title.Parent = MainFrame
+
+local Container = Instance.new("ScrollingFrame")
+Container.Size = UDim2.new(1, -30, 1, -80)
+Container.Position = UDim2.new(0, 15, 0, 65)
+Container.BackgroundTransparency = 1
+Container.ScrollBarThickness = 0
+Container.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = Container
+Layout.Padding = UDim.new(0, 15)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+---------------------------------------------------------
+-- LOGIC CHỨC NĂNG (TỐI ƯU SIÊU TỐC - KHÔNG ĐỔI LOGIC)
+---------------------------------------------------------
+
+-- 1. Booster (Tự chạy - Đã tối ưu quét cục bộ)
+local function Boost()
+    settings().Rendering.QualityLevel = 1
+    for _, v in pairs(Lighting:GetChildren()) do
+        if v:IsA("PostProcessEffect") or v:IsA("BlurEffect") then v.Enabled = false end
+    end
+end
+Boost()
+
+-- 2. Fullbright
+local FB_On = false
+local function ToggleFB(s)
+    FB_On = s
+    if s then
+        Lighting.Brightness = 2.5
+        Lighting.ClockTime = 14
+        Lighting.Ambient = Color3.new(1,1,1)
+    else
+        Lighting.Brightness = 1
+        Lighting.Ambient = Color3.new(0,0,0)
+    end
+end
+
+-- 3. Instant Prompt
+local InstantConn
+local function ToggleInstant(s)
+    if s then
+        InstantConn = ProximityService.PromptButtonHoldBegan:Connect(function(p) fireproximityprompt(p) end)
+    else
+        if InstantConn then InstantConn:Disconnect() end
+    end
+end
+
+-- 4. ESP Player & Entity - 1000m (ĐÃ KHỬ LAG TUYỆT ĐỐI)
+local ESP_Active = false
+task.spawn(function()
+    while task.wait(1) do
+        if not ESP_Active then
+            -- Chỉ xóa các ESP đang có trong workspace thay vì quét toàn game
+            for _, obj in pairs(workspace:GetChildren()) do
+                local esp = obj:FindFirstChild("LB_ESP")
+                if esp then esp:Destroy() end
+            end
+            continue
+        end
+        
+        -- QUẾT TỐI ƯU: Chỉ tìm trong danh sách con của Workspace (Không lag máy)
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") and obj ~= LocalPlayer.Character then
+                -- Nếu đã gắn ESP rồi thì bỏ qua luôn, tránh giật đè
+                if obj:FindFirstChild("LB_ESP") then continue end
+                
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (obj.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    if dist <= 1000 then
+                        local isPlayer = Players:GetPlayerFromCharacter(obj)
+                        local highlight = Instance.new("Highlight")
+                        highlight.Name = "LB_ESP"
+                        highlight.FillTransparency = 0.5
+                        highlight.OutlineTransparency = 0
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        
+                        if isPlayer then
+                            highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Xanh lá cho người
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        else
+                            highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Đỏ cho quái
+                            highlight.OutlineColor = Color3.fromRGB(255, 255,  yellow)
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+                        end
+                        highlight.Parent = obj
+                    end
+                end
+            end
+        end
+    end
+end)
+
+---------------------------------------------------------
+-- HÀM TẠO TOGGLE SIÊU ĐẸP
+---------------------------------------------------------
+local function AddToggle(text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 300, 0, 50)
+    Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Btn.Text = text
+    Btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 14
+    Btn.AutoButtonColor = false
+    Btn.Parent = Container
+
+    local stroke = MakeGuiBeautiful(Btn, UDim.new(0, 12), Color3.fromRGB(60, 60, 60), 1.5)
+    
+    local state = false
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        callback(state)
+        
+        local color = state and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(150, 150, 150)
+        local strokeColor = state and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(60, 60, 60)
+        
+        TweenService:Create(Btn, TweenInfo.new(0.3), {TextColor3 = color}):Play()
+        TweenService:Create(stroke, TweenInfo.new(0.3), {Color = strokeColor, Thickness = state and 2.5 or 1.5}):Play()
+    end)
+end
+
+AddToggle("⚡ FULLBRIGHT (NHÌN ĐÊM)", ToggleFB)
+AddToggle("⏱️ INSTANT PROMPT (KO DELAY)", ToggleInstant)
+AddToggle("👁️ ESP PLAYER & MONSTER", function(s) ESP_Active = s end)
+
+-- Nút đóng mở
+ToggleButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    local targetPos = MainFrame.Visible and UDim2.new(0.5, -175, 0.5, -225) or UDim2.new(0.5, -175, 1, 50)
+    TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Position = targetPos}):Play()
+end)
+
+print("Long Béo - SIÊU PHẨM HORROR LOADED!")
