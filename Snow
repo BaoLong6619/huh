@@ -1,0 +1,231 @@
+javascript:(function(){
+    'use strict';
+
+    // Nếu đã có panel thì thôi
+    if (document.getElementById('tua-panel-host')) return;
+
+    // ====== CẤU HÌNH ======
+    const SPEED_CONFIG = {
+        link4m: 25,    // tốc độ mặc định cho link4m
+        traffic: 15,
+        layma: 15
+    };
+
+    const PANEL_TYPES = {
+        link4m: 5,
+        traffic: 3,
+        layma: 10
+    };
+
+    // Mặc định bật tăng tốc
+    let speedEnabled = true;
+    let SPEED_MULTIPLIER = 0;  // 0 = dùng mặc định, >0 là bội số
+
+    // Trạng thái các loại panel
+    let panelStatus = {
+        link4m: false,
+        traffic: false,
+        layma: false
+    };
+
+    // ====== KEY: NHẬP GÌ CŨNG ĐƯỢC ======
+    let savedKey = localStorage.getItem('speed_link_key') || '';
+    let savedExpiry = localStorage.getItem('speed_link_expiry') || '';
+
+    // Kiểm tra hết hạn
+    function isExpired() {
+        if (!savedExpiry) return true;
+        return Date.now() > Number(savedExpiry);
+    }
+
+    // Nếu key cũ hết hạn thì xóa
+    if (savedKey && isExpired()) {
+        localStorage.removeItem('speed_link_key');
+        localStorage.removeItem('speed_link_expiry');
+        savedKey = '';
+        savedExpiry = '';
+    }
+
+    // ====== FORM NHẬP KEY ======
+    function showKeyForm() {
+        const overlay = document.createElement('div');
+        overlay.id = 'key-overlay';
+        overlay.style.cssText = `
+            position:fixed;top:0;left:0;width:100%;height:100%;
+            background:rgba(0,0,0,0.7);z-index:2147483646;
+            display:flex;align-items:center;justify-content:center;
+            font-family:Arial,sans-serif;
+        `;
+
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background:#1a1a2e;padding:30px;border-radius:12px;
+            text-align:center;color:#eee;min-width:350px;
+            box-shadow:0 0 30px rgba(0,255,136,0.3);
+        `;
+
+        box.innerHTML = `
+            <h2 style="margin:0 0 5px;color:#00ff88;">🔑 Nhập Key</h2>
+            <p style="font-size:13px;color:#aaa;margin:0 0 20px;">Nhập gì cũng được!</p>
+            <input id="key-input" type="text" placeholder="Nhập key bất kỳ..."
+                style="width:100%;padding:12px;border:none;border-radius:8px;
+                font-size:16px;text-align:center;background:#16213e;color:#fff;
+                outline:none;box-sizing:border-box;">
+            <button id="key-submit" style="
+                margin-top:15px;width:100%;padding:12px;background:#00ff88;
+                color:#000;border:none;border-radius:8px;font-size:16px;
+                font-weight:bold;cursor:pointer;">
+                XÁC NHẬN
+            </button>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        // Xử lý submit
+        document.getElementById('key-submit').onclick = function() {
+            const key = document.getElementById('key-input').value.trim();
+            if (!key) {
+                alert('Vui lòng nhập key!');
+                return;
+            }
+
+            // Lưu key vào localStorage (chấp nhận mọi key)
+            const expiry = Date.now() + (24 * 60 * 60 * 1000); // 24h
+            localStorage.setItem('speed_link_key', key);
+            localStorage.setItem('speed_link_expiry', expiry);
+
+            // Xóa form
+            overlay.remove();
+
+            // Lưu biến
+            savedKey = key;
+            savedExpiry = expiry;
+
+            // Tiếp tục chạy
+            startSpeedModule();
+        };
+
+        // Enter để submit
+        document.getElementById('key-input').onkeydown = function(e) {
+            if (e.key === 'Enter') document.getElementById('key-submit').click();
+        };
+    }
+
+    // ====== MODULE TĂNG TỐC ======
+    function startSpeedModule() {
+        // Chặn setTimeout/setInterval để tăng tốc
+        const origSetTimeout = window.setTimeout;
+        window.setTimeout = function(callback, delay, ...args) {
+            if (speedEnabled && delay >= 28 && delay <= 304 && SPEED_MULTIPLIER > 1) {
+                delay = Math.round(delay / SPEED_MULTIPLIER);
+            }
+            return origSetTimeout(callback, delay, ...args);
+        };
+
+        const origSetInterval = window.setInterval;
+        window.setInterval = function(callback, delay, ...args) {
+            if (speedEnabled && delay >= 28 && delay <= 688 && SPEED_MULTIPLIER > 1) {
+                delay = Math.round(delay / SPEED_MULTIPLIER);
+            }
+            return origSetInterval(callback, delay, ...args);
+        };
+
+        // Tạo panel điều khiển
+        createControlPanel();
+    }
+
+    // ====== PANEL ĐIỀU KHIỂN ======
+    function createControlPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'tua-panel-host';
+        panel.style.cssText = `
+            position:fixed;bottom:20px;right:20px;z-index:2147483647;
+            background:#1a1a2e;padding:15px;border-radius:12px;
+            color:#fff;font-family:Arial,sans-serif;min-width:220px;
+            box-shadow:0 0 20px rgba(0,255,136,0.4);
+            user-select:none;
+        `;
+
+        let html = `
+            <div style="font-weight:bold;margin-bottom:10px;color:#00ff88;">
+                ⚡ TUA PANEL
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;margin:8px 0;font-size:14px;">
+                <input type="checkbox" id="tua-speed-toggle" checked>
+                Bật tăng tốc
+            </label>
+            <div style="margin:8px 0;font-size:13px;">
+                Hệ số: <input type="range" id="tua-speed-multiplier" min="1" max="50" value="10"
+                    style="width:100px;vertical-align:middle;">
+                <span id="tua-multiplier-value">10x</span>
+            </div>
+        `;
+
+        // Thêm các loại panel
+        for (const [name, speed] of Object.entries(SPEED_CONFIG)) {
+            html += `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0;font-size:13px;">
+                    <span>${name}</span>
+                    <span>Tốc độ: ${speed}</span>
+                </div>
+            `;
+        }
+
+        html += `
+            <button id="tua-close" style="
+                margin-top:10px;width:100%;padding:6px;background:#e94560;
+                color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                Ẩn
+            </button>
+        `;
+
+        panel.innerHTML = html;
+        document.body.appendChild(panel);
+
+        // Sự kiện
+        const toggle = document.getElementById('tua-speed-toggle');
+        const multiplier = document.getElementById('tua-speed-multiplier');
+        const multiplierValue = document.getElementById('tua-multiplier-value');
+
+        toggle.onchange = function() {
+            speedEnabled = this.checked;
+        };
+
+        multiplier.oninput = function() {
+            SPEED_MULTIPLIER = parseInt(this.value);
+            multiplierValue.textContent = this.value + 'x';
+        };
+
+        SPEED_MULTIPLIER = parseInt(multiplier.value);
+
+        document.getElementById('tua-close').onclick = function() {
+            panel.style.display = 'none';
+            // Tạo nút mini để mở lại
+            const mini = document.createElement('div');
+            mini.id = 'tua-mini';
+            mini.style.cssText = `
+                position:fixed;bottom:20px;right:20px;z-index:2147483647;
+                width:40px;height:40px;background:#00ff88;border-radius:50%;
+                display:flex;align-items:center;justify-content:center;
+                cursor:pointer;font-size:20px;box-shadow:0 0 10px rgba(0,255,136,0.5);
+            `;
+            mini.textContent = '⚡';
+            mini.onclick = function() {
+                panel.style.display = 'block';
+                mini.remove();
+            };
+            document.body.appendChild(mini);
+        };
+    }
+
+    // ====== KHỞI ĐỘNG ======
+    if (savedKey && !isExpired()) {
+        // Đã có key hợp lệ
+        startSpeedModule();
+    } else {
+        // Hiện form nhập key (nhập gì cũng được)
+        showKeyForm();
+    }
+
+})();
