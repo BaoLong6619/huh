@@ -1,0 +1,465 @@
+-- ============================================================== --
+-- LONG BÉO PANEL - WALLHOP V3 (FULL BYPASS & PERSISTENT)
+-- ============================================================== --
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Create Main ScreenGui in CoreGui with ResetOnSpawn = false equivalent behavior
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LongBeoPanelGui"
+screenGui.Parent = CoreGui
+screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 999999
+
+-- Helper function for smooth UI animations
+local function animate(object, properties, duration, style)
+    style = style or Enum.EasingStyle.Quart
+    local tweenInfo = TweenInfo.new(duration or 0.25, style, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(object, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+-- ================= ================= ================= --
+-- DRAGGABLE ENGINE
+-- ================= ================= ================= --
+local function makeDraggable(gui, handle)
+    handle = handle or gui
+    local dragging, dragInput, dragStart, startPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            animate(gui, {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}, 0.05, Enum.EasingStyle.Linear)
+        end
+    end)
+end
+
+-- ================= ================= ================= --
+-- 1. FLOATING TOGGLE BUTTON ("long béo")
+-- ================= ================= ================= --
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "long béo"
+toggleButton.Parent = screenGui
+toggleButton.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+toggleButton.Position = UDim2.new(0.02, 0, 0.2, 0)
+toggleButton.Size = UDim2.new(0, 120, 0, 36)
+toggleButton.Font = Enum.Font.FredokaOne
+toggleButton.Text = "LONG BÉO 👁️"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 13
+toggleButton.AutoButtonColor = false
+toggleButton.ClipsDescendants = true
+
+local toggleCorner = Instance.new("UICorner", toggleButton)
+toggleCorner.CornerRadius = UDim.new(0, 10)
+
+local toggleStroke = Instance.new("UIStroke", toggleButton)
+toggleStroke.Color = Color3.fromRGB(0, 170, 255)
+toggleStroke.Thickness = 1.5
+
+makeDraggable(toggleButton)
+
+-- ================= ================= ================= --
+-- 2. MAIN FRAME (LONG BÉO PANEL)
+-- ================= ================= ================= --
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainContainer"
+mainFrame.Parent = screenGui
+mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+mainFrame.Position = UDim2.new(0.5, -110, 0.5, -75)
+mainFrame.Size = UDim2.new(0, 220, 0, 150)
+mainFrame.ClipsDescendants = false
+
+local frameCorner = Instance.new("UICorner", mainFrame)
+frameCorner.CornerRadius = UDim.new(0, 12)
+
+local frameStroke = Instance.new("UIStroke", mainFrame)
+frameStroke.Color = Color3.fromRGB(45, 45, 55)
+frameStroke.Thickness = 1.5
+
+makeDraggable(mainFrame)
+
+-- Title Header Bar
+local titleBar = Instance.new("Frame", mainFrame)
+titleBar.Size = UDim2.new(1, 0, 0, 32)
+titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 32)
+
+local titleCorner = Instance.new("UICorner", titleBar)
+titleCorner.CornerRadius = UDim.new(0, 12)
+
+local titleLabel = Instance.new("TextLabel", titleBar)
+titleLabel.Size = UDim2.new(1, -10, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "LONG BÉO PANEL"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.FredokaOne
+titleLabel.TextSize = 14
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Status Badge Indicator
+local statusBadge = Instance.new("Frame", titleBar)
+statusBadge.Size = UDim2.new(0, 50, 0, 18)
+statusBadge.Position = UDim2.new(1, -60, 0.5, -9)
+statusBadge.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+
+local badgeCorner = Instance.new("UICorner", statusBadge)
+badgeCorner.CornerRadius = UDim.new(1, 0)
+
+local statusText = Instance.new("TextLabel", statusBadge)
+statusText.Size = UDim2.new(1, 0, 1, 0)
+statusText.BackgroundTransparency = 1
+statusText.Text = "OFF"
+statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusText.Font = Enum.Font.FredokaOne
+statusText.TextSize = 10
+
+-- Button Creator Function
+local function createStyledButton(name, text, pos, size, bgCol, parent)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Parent = parent or mainFrame
+    btn.Position = pos
+    btn.Size = size
+    btn.BackgroundColor3 = bgCol
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.FredokaOne
+    btn.TextSize = 12
+    btn.AutoButtonColor = false
+    btn.ClipsDescendants = true
+
+    local btnCorner = Instance.new("UICorner", btn)
+    btnCorner.CornerRadius = UDim.new(0, 8)
+
+    btn.MouseEnter:Connect(function()
+        animate(btn, {BackgroundTransparency = 0.15}, 0.15)
+    end)
+    btn.MouseLeave:Connect(function()
+        animate(btn, {BackgroundTransparency = 0}, 0.15)
+    end)
+    btn.MouseButton1Down:Connect(function()
+        animate(btn, {Size = UDim2.new(size.X.Scale, size.X.Offset - 4, size.Y.Scale, size.Y.Offset - 4)}, 0.08)
+    end)
+    btn.MouseButton1Up:Connect(function()
+        animate(btn, {Size = size}, 0.08)
+    end)
+
+    return btn
+end
+
+-- Controls Layout
+local controlsFrame = Instance.new("Frame", mainFrame)
+controlsFrame.Size = UDim2.new(1, -20, 1, -42)
+controlsFrame.Position = UDim2.new(0, 10, 0, 37)
+controlsFrame.BackgroundTransparency = 1
+
+local onButton = createStyledButton("OnBtn", "ON", UDim2.new(0, 0, 0, 0), UDim2.new(0, 60, 0, 30), Color3.fromRGB(46, 204, 113), controlsFrame)
+local additionButton = createStyledButton("AddBtn", "ADD", UDim2.new(0, 70, 0, 0), UDim2.new(0, 60, 0, 30), Color3.fromRGB(155, 89, 182), controlsFrame)
+local offButton = createStyledButton("OffBtn", "OFF", UDim2.new(0, 140, 0, 0), UDim2.new(0, 60, 0, 30), Color3.fromRGB(231, 76, 60), controlsFrame)
+
+local destroyButton = createStyledButton("DestroyBtn", "DESTROY SCRIPT", UDim2.new(0, 0, 0, 40), UDim2.new(1, 0, 0, 32), Color3.fromRGB(35, 35, 45), controlsFrame)
+
+local additionToggle = false
+local additionalFrame = nil
+local jumpButtonInAddition = nil
+
+-- Toggle Main Frame Visibility
+local mainVisible = true
+toggleButton.MouseButton1Click:Connect(function()
+    mainVisible = not mainVisible
+    mainFrame.Visible = mainVisible
+    if mainVisible then
+        toggleButton.Text = "LONG BÉO 👁️"
+        animate(toggleStroke, {Color = Color3.fromRGB(0, 170, 255)}, 0.2)
+    else
+        toggleButton.Text = "LONG BÉO 🙈"
+        animate(toggleStroke, {Color = Color3.fromRGB(255, 70, 70)}, 0.2)
+    end
+end)
+
+-- ============================================================== --
+-- WALLHOP LOGIC (UNSTOPPABLE ROTATION & DEATH PERSISTENCE)
+-- ============================================================== --
+local wallhopToggle = false
+local InfiniteJumpEnabled = true
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+local jumpConnection = nil
+
+local function getWallRaycastResult()
+    local character = LocalPlayer.Character
+    if not character then return nil end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+
+    raycastParams.FilterDescendantsInstances = {character}
+    local detectionDistance = 2
+    local closestHit = nil
+    local minDistance = detectionDistance + 1
+    local hrpCF = humanoidRootPart.CFrame
+
+    for i = 0, 7 do
+        local angle = math.rad(i * 45)
+        local direction = (hrpCF * CFrame.Angles(0, angle, 0)).LookVector
+        local ray = Workspace:Raycast(humanoidRootPart.Position, direction * detectionDistance, raycastParams)
+        if ray and ray.Instance and ray.Distance < minDistance then
+            minDistance = ray.Distance
+            closestHit = ray
+        end
+    end
+
+    local blockCastSize = Vector3.new(1.5, 1, 0.5)
+    local blockCastOffset = CFrame.new(0, -1, -0.5)
+    local blockCastOriginCF = hrpCF * blockCastOffset
+    local blockCastDirection = hrpCF.LookVector
+    local blockCastDistance = 1.5
+    local blockResult = Workspace:Blockcast(blockCastOriginCF, blockCastSize, blockCastDirection * blockCastDistance, raycastParams)
+
+    if blockResult and blockResult.Instance and blockResult.Distance < minDistance then
+         minDistance = blockResult.Distance
+         closestHit = blockResult
+    end
+
+    return closestHit
+end
+
+local function performFaceWallJump()
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local camera = Workspace.CurrentCamera
+
+    if not (humanoid and rootPart and camera and humanoid:GetState() ~= Enum.HumanoidStateType.Dead) then return end
+
+    local wallRayResult = getWallRaycastResult()
+
+    if wallRayResult then
+        local maxInfluenceAngleRight = math.rad(20)
+        local maxInfluenceAngleLeft  = math.rad(-100)
+
+        local wallNormal = wallRayResult.Normal
+        local baseDirectionAwayFromWall = Vector3.new(wallNormal.X, 0, wallNormal.Z).Unit
+        if baseDirectionAwayFromWall.Magnitude < 0.1 then
+             local dirToHit = (wallRayResult.Position - rootPart.Position) * Vector3.new(1,0,1)
+             baseDirectionAwayFromWall = -dirToHit.Unit
+             if baseDirectionAwayFromWall.Magnitude < 0.1 then
+                 baseDirectionAwayFromWall = -rootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+                 if baseDirectionAwayFromWall.Magnitude > 0.1 then baseDirectionAwayFromWall = baseDirectionAwayFromWall.Unit end
+                 if baseDirectionAwayFromWall.Magnitude < 0.1 then baseDirectionAwayFromWall = Vector3.new(0,0,1) end
+             end
+        end
+        baseDirectionAwayFromWall = Vector3.new(baseDirectionAwayFromWall.X, 0, baseDirectionAwayFromWall.Z).Unit
+        if baseDirectionAwayFromWall.Magnitude < 0.1 then baseDirectionAwayFromWall = Vector3.new(0,0,1) end
+
+        local cameraLook = camera.CFrame.LookVector
+        local horizontalCameraLook = Vector3.new(cameraLook.X, 0, cameraLook.Z).Unit
+        if horizontalCameraLook.Magnitude < 0.1 then horizontalCameraLook = baseDirectionAwayFromWall end
+
+        local dot = math.clamp(baseDirectionAwayFromWall:Dot(horizontalCameraLook), -1, 1)
+        local angleBetween = math.acos(dot)
+        local cross = baseDirectionAwayFromWall:Cross(horizontalCameraLook)
+        local rotationSign = -math.sign(cross.Y)
+        if rotationSign == 0 then angleBetween = 0 end
+
+        local actualInfluenceAngle
+        if rotationSign == 1 then
+            actualInfluenceAngle = math.min(angleBetween, maxInfluenceAngleRight)
+        elseif rotationSign == -1 then
+            actualInfluenceAngle = math.min(angleBetween, maxInfluenceAngleLeft)
+        else
+            actualInfluenceAngle = 0
+        end
+
+        local adjustmentRotation = CFrame.Angles(0, actualInfluenceAngle * rotationSign, 0)
+        local initialTargetLookDirection = adjustmentRotation * baseDirectionAwayFromWall
+
+        -- Unstoppable rotation override mechanism
+        local platformStandState = humanoid.PlatformStand
+        humanoid.PlatformStand = true
+
+        rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + initialTargetLookDirection)
+        RunService.Heartbeat:Wait()
+
+        local didJump = false
+        if humanoid and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            didJump = true
+
+            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, -1, 0)
+            task.wait(0.15)
+            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, 1, 0)
+        end
+
+        if didJump then
+            local directionTowardsWall = -baseDirectionAwayFromWall
+            task.wait(0.05)
+            rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + directionTowardsWall)
+        end
+
+        humanoid.PlatformStand = platformStandState
+    end
+end
+
+-- Button Bindings
+onButton.MouseButton1Click:Connect(function()
+    statusText.Text = "ON"
+    animate(statusBadge, {BackgroundColor3 = Color3.fromRGB(46, 204, 113)}, 0.2)
+    wallhopToggle = true
+end)
+
+offButton.MouseButton1Click:Connect(function()
+    statusText.Text = "OFF"
+    animate(statusBadge, {BackgroundColor3 = Color3.fromRGB(231, 76, 60)}, 0.2)
+    wallhopToggle = false
+end)
+
+additionButton.MouseButton1Click:Connect(function()
+    additionToggle = not additionToggle
+    if additionToggle then
+        if not additionalFrame then
+            animate(additionButton, {BackgroundColor3 = Color3.fromRGB(46, 204, 113)}, 0.2)
+            
+            additionalFrame = Instance.new("Frame")
+            additionalFrame.Name = "AdditionalWallHopFrame"
+            additionalFrame.Parent = mainFrame
+            additionalFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+            additionalFrame.Size = UDim2.new(1, 0, 0, 50)
+            additionalFrame.Position = UDim2.new(0, 0, 1, 10)
+            
+            local addCorner = Instance.new("UICorner", additionalFrame)
+            addCorner.CornerRadius = UDim.new(0, 10)
+
+            local addStroke = Instance.new("UIStroke", additionalFrame)
+            addStroke.Color = Color3.fromRGB(45, 45, 55)
+
+            jumpButtonInAddition = createStyledButton("FaceWallJumpButton", "JUMP WALL", UDim2.new(0.1, 0, 0.15, 0), UDim2.new(0.8, 0, 0.7, 0), Color3.fromRGB(0, 150, 255), additionalFrame)
+            jumpButtonInAddition.MouseButton1Click:Connect(performFaceWallJump)
+        end
+    else
+        if additionalFrame then
+            animate(additionButton, {BackgroundColor3 = Color3.fromRGB(155, 89, 182)}, 0.2)
+            additionalFrame:Destroy()
+            additionalFrame = nil
+            jumpButtonInAddition = nil
+        end
+    end
+end)
+
+destroyButton.MouseButton1Click:Connect(function()
+    if jumpConnection then jumpConnection:Disconnect(); jumpConnection = nil end
+    wallhopToggle = false
+    screenGui:Destroy()
+    additionalFrame = nil
+    jumpButtonInAddition = nil
+end)
+
+jumpConnection = UserInputService.JumpRequest:Connect(function()
+    if not wallhopToggle or not InfiniteJumpEnabled then return end
+
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local camera = Workspace.CurrentCamera
+
+    if not (humanoid and rootPart and camera and humanoid:GetState() ~= Enum.HumanoidStateType.Dead) then return end
+
+    local wallRayResult = getWallRaycastResult()
+
+    if wallRayResult then
+        InfiniteJumpEnabled = false
+
+        local maxInfluenceAngleRight = math.rad(20)
+        local maxInfluenceAngleLeft  = math.rad(-100)
+
+        local wallNormal = wallRayResult.Normal
+        local baseDirectionAwayFromWall = Vector3.new(wallNormal.X, 0, wallNormal.Z).Unit
+        if baseDirectionAwayFromWall.Magnitude < 0.1 then
+             local dirToHit = (wallRayResult.Position - rootPart.Position) * Vector3.new(1,0,1)
+             baseDirectionAwayFromWall = -dirToHit.Unit
+             if baseDirectionAwayFromWall.Magnitude < 0.1 then
+                 baseDirectionAwayFromWall = -rootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+                 if baseDirectionAwayFromWall.Magnitude > 0.1 then baseDirectionAwayFromWall = baseDirectionAwayFromWall.Unit end
+                 if baseDirectionAwayFromWall.Magnitude < 0.1 then baseDirectionAwayFromWall = Vector3.new(0,0,1) end
+             end
+        end
+        baseDirectionAwayFromWall = Vector3.new(baseDirectionAwayFromWall.X, 0, baseDirectionAwayFromWall.Z).Unit
+        if baseDirectionAwayFromWall.Magnitude < 0.1 then baseDirectionAwayFromWall = Vector3.new(0,0,1) end
+
+        local cameraLook = camera.CFrame.LookVector
+        local horizontalCameraLook = Vector3.new(cameraLook.X, 0, cameraLook.Z).Unit
+        if horizontalCameraLook.Magnitude < 0.1 then horizontalCameraLook = baseDirectionAwayFromWall end
+
+        local dot = math.clamp(baseDirectionAwayFromWall:Dot(horizontalCameraLook), -1, 1)
+        local angleBetween = math.acos(dot)
+        local cross = baseDirectionAwayFromWall:Cross(horizontalCameraLook)
+        local rotationSign = -math.sign(cross.Y)
+        if rotationSign == 0 then angleBetween = 0 end
+
+        local actualInfluenceAngle
+        if rotationSign == 1 then
+            actualInfluenceAngle = math.min(angleBetween, maxInfluenceAngleRight)
+        elseif rotationSign == -1 then
+            actualInfluenceAngle = math.min(angleBetween, maxInfluenceAngleLeft)
+        else
+            actualInfluenceAngle = 0
+        end
+
+        local adjustmentRotation = CFrame.Angles(0, actualInfluenceAngle * rotationSign, 0)
+        local initialTargetLookDirection = adjustmentRotation * baseDirectionAwayFromWall
+
+        local platformStandState = humanoid.PlatformStand
+        humanoid.PlatformStand = true
+
+        rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + initialTargetLookDirection)
+        RunService.Heartbeat:Wait()
+
+        local didJump = false
+        if humanoid and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+             didJump = true
+
+             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, -1, 0)
+             task.wait(0.15)
+             rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, 1, 0)
+        end
+
+        if didJump then
+             local directionTowardsWall = -baseDirectionAwayFromWall
+             task.wait(0.05)
+             rootPart.CFrame = CFrame.lookAt(rootPart.Position, rootPart.Position + directionTowardsWall)
+        end
+
+        humanoid.PlatformStand = platformStandState
+        InfiniteJumpEnabled = true
+    end
+end)
