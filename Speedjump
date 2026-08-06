@@ -1,0 +1,274 @@
+-- Script Speed & Jump - GUI "long béo"
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Xóa GUI cũ nếu tồn tại
+if CoreGui:FindFirstChild("LongBeoSpeedGui") then
+    CoreGui.LongBeoSpeedGui:Destroy()
+end
+
+-- ScreenGui chính
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeoSpeedGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999
+ScreenGui.Parent = CoreGui
+
+-- Hàm làm GUI kéo thả mượt mà
+local function makeDraggable(gui)
+    local dragging, dragInput, dragStart, startPos
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Nút lẻ Toggle (long béo)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.new(0, 110, 0, 35)
+ToggleBtn.Position = UDim2.new(0, 10, 0.4, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Text = "long béo"
+ToggleBtn.TextSize = 14
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.Parent = ScreenGui
+makeDraggable(ToggleBtn)
+
+local UICornerBtn = Instance.new("UICorner")
+UICornerBtn.CornerRadius = UDim.new(0, 8)
+UICornerBtn.Parent = ToggleBtn
+
+-- Khung GUI chính (long béo)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -120)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+makeDraggable(MainFrame)
+
+local UICornerMain = Instance.new("UICorner")
+UICornerMain.CornerRadius = UDim.new(0, 10)
+UICornerMain.Parent = MainFrame
+
+-- Tiêu đề GUI
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "long béo - Hacks Speed & Jump"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
+
+local UICornerTitle = Instance.new("UICorner")
+UICornerTitle.CornerRadius = UDim.new(0, 10)
+UICornerTitle.Parent = Title
+
+-- Tab Container
+local TabFrame = Instance.new("Frame")
+TabFrame.Size = UDim2.new(1, 0, 1, -35)
+TabFrame.Position = UDim2.new(0, 0, 0, 35)
+TabFrame.BackgroundTransparency = 1
+TabFrame.Parent = MainFrame
+
+-- Biến chỉ số
+local defaultSpeed = 16
+local defaultJump = 50
+local currentSpeed = defaultSpeed
+local currentJump = defaultJump
+
+local function getHumanoid()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:WaitForChild("Humanoid")
+end
+
+local function applyStats()
+    local hum = getHumanoid()
+    if hum then
+        hum.WalkSpeed = currentSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower = currentJump
+    end
+end
+
+-- Lắng nghe khi nhân vật hồi sinh
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    applyStats()
+end)
+
+-- Tạo UI Điều khiển (WalkSpeed)
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(0, 90, 0, 30)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 15)
+SpeedLabel.Text = "Tốc độ:"
+SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedLabel.TextSize = 14
+SpeedLabel.Font = Enum.Font.SourceSans
+SpeedLabel.Parent = TabFrame
+
+local SpeedMinus = Instance.new("TextButton")
+SpeedMinus.Size = UDim2.new(0, 30, 0, 30)
+SpeedMinus.Position = UDim2.new(0, 100, 0, 15)
+SpeedMinus.Text = "-"
+SpeedMinus.TextSize = 18
+SpeedMinus.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+SpeedMinus.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedMinus.Parent = TabFrame
+
+local SpeedInput = Instance.new("TextBox")
+SpeedInput.Size = UDim2.new(0, 70, 0, 30)
+SpeedInput.Position = UDim2.new(0, 135, 0, 15)
+SpeedInput.Text = tostring(currentSpeed)
+SpeedInput.TextSize = 14
+SpeedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SpeedInput.TextColor3 = Color3.fromRGB(0, 255, 127)
+SpeedInput.Parent = TabFrame
+
+local SpeedPlus = Instance.new("TextButton")
+SpeedPlus.Size = UDim2.new(0, 30, 0, 30)
+SpeedPlus.Position = UDim2.new(0, 210, 0, 15)
+SpeedPlus.Text = "+"
+SpeedPlus.TextSize = 18
+SpeedPlus.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+SpeedPlus.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedPlus.Parent = TabFrame
+
+-- Tạo UI Điều khiển (JumpPower)
+local JumpLabel = Instance.new("TextLabel")
+JumpLabel.Size = UDim2.new(0, 90, 0, 30)
+JumpLabel.Position = UDim2.new(0, 10, 0, 60)
+JumpLabel.Text = "Nhảy cao:"
+JumpLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+JumpLabel.TextSize = 14
+JumpLabel.Font = Enum.Font.SourceSans
+JumpLabel.Parent = TabFrame
+
+local JumpMinus = Instance.new("TextButton")
+JumpMinus.Size = UDim2.new(0, 30, 0, 30)
+JumpMinus.Position = UDim2.new(0, 100, 0, 60)
+JumpMinus.Text = "-"
+JumpMinus.TextSize = 18
+JumpMinus.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+JumpMinus.TextColor3 = Color3.fromRGB(255, 255, 255)
+JumpMinus.Parent = TabFrame
+
+local JumpInput = Instance.new("TextBox")
+JumpInput.Size = UDim2.new(0, 70, 0, 30)
+JumpInput.Position = UDim2.new(0, 135, 0, 60)
+JumpInput.Text = tostring(currentJump)
+JumpInput.TextSize = 14
+JumpInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+JumpInput.TextColor3 = Color3.fromRGB(0, 255, 127)
+JumpInput.Parent = TabFrame
+
+local JumpPlus = Instance.new("TextButton")
+JumpPlus.Size = UDim2.new(0, 30, 0, 30)
+JumpPlus.Position = UDim2.new(0, 210, 0, 60)
+JumpPlus.Text = "+"
+JumpPlus.TextSize = 18
+JumpPlus.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+JumpPlus.TextColor3 = Color3.fromRGB(255, 255, 255)
+JumpPlus.Parent = TabFrame
+
+-- Nút Reset Tốc độ & Độ nhảy về mặc định
+local ResetBtn = Instance.new("TextButton")
+ResetBtn.Size = UDim2.new(0, 230, 0, 35)
+ResetBtn.Position = UDim2.new(0, 10, 0, 110)
+ResetBtn.Text = "Reset Tốc Độ & Nhảy Chuẩn"
+ResetBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+ResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ResetBtn.TextSize = 14
+ResetBtn.Font = Enum.Font.SourceSansBold
+ResetBtn.Parent = TabFrame
+
+local UICornerReset = Instance.new("UICorner")
+UICornerReset.CornerRadius = UDim.new(0, 6)
+UICornerReset.Parent = ResetBtn
+
+-- Sự kiện ẩn/hiện GUI
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Sự kiện thay đổi Speed
+SpeedPlus.MouseButton1Click:Connect(function()
+    currentSpeed = currentSpeed + 5
+    SpeedInput.Text = tostring(currentSpeed)
+    applyStats()
+end)
+
+SpeedMinus.MouseButton1Click:Connect(function()
+    currentSpeed = math.max(0, currentSpeed - 5)
+    SpeedInput.Text = tostring(currentSpeed)
+    applyStats()
+end)
+
+SpeedInput.FocusLost:Connect(function()
+    local val = tonumber(SpeedInput.Text)
+    if val then
+        currentSpeed = val
+        applyStats()
+    else
+        SpeedInput.Text = tostring(currentSpeed)
+    end
+end)
+
+-- Sự kiện thay đổi Jump
+JumpPlus.MouseButton1Click:Connect(function()
+    currentJump = currentJump + 10
+    JumpInput.Text = tostring(currentJump)
+    applyStats()
+end)
+
+JumpMinus.MouseButton1Click:Connect(function()
+    currentJump = math.max(0, currentJump - 10)
+    JumpInput.Text = tostring(currentJump)
+    applyStats()
+end)
+
+JumpInput.FocusLost:Connect(function()
+    local val = tonumber(JumpInput.Text)
+    if val then
+        currentJump = val
+        applyStats()
+    else
+        JumpInput.Text = tostring(currentJump)
+    end
+end)
+
+-- Sự kiện Nút Reset
+ResetBtn.MouseButton1Click:Connect(function()
+    currentSpeed = defaultSpeed
+    currentJump = defaultJump
+    SpeedInput.Text = tostring(defaultSpeed)
+    JumpInput.Text = tostring(defaultJump)
+    applyStats()
+end)
+
+-- Khởi chạy ban đầu
+applyStats()
