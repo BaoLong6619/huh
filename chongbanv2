@@ -1,0 +1,108 @@
+-- Script Long Béo - Ultimate Anti-Kick & Bypass Client Anti-Cheat (Mạnh Cấp Cao)
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+
+-- 1. BỘ LỌC CHỐNG KICK / CRASH MẠNH CAO CẤP (BYPASS CLIENT)
+if getrawmetatable then
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    local oldIndex = mt.__index
+    setreadonly(mt, false)
+
+    -- Chặn qua __namecall (Tất cả các phương thức Kick, Teleport ép buộc, Crash)
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod():lower()
+        
+        -- Chặn gọi lệnh Kick dưới mọi hình thức (kick, Kick, KICK...)
+        if self == LocalPlayer and method == "kick" then
+            return nil
+        end
+        
+        -- Chặn Anti-Cheat cố tình Teleport bạn sang Server khác để đuổi bạn ra
+        if self == TeleportService and (method == "teleport" or method == "teleporttoplacebyid") then
+            return nil
+        end
+        
+        -- Chặn Anti-Cheat cố tình xóa Nhân vật (Character) để làm hỏng Game
+        if (method == "destroy" or method == "remove") and (self == LocalPlayer or self == LocalPlayer.Character) then
+            return nil
+        end
+
+        return oldNamecall(self, ...)
+    end)
+
+    -- Chặn qua __index (Chống các Script Anti-Cheat soi thuộc tính sensitive)
+    mt.__index = newcclosure(function(self, key)
+        if self == LocalPlayer and tostring(key):lower() == "kick" then
+            return newcclosure(function() return nil end)
+        end
+        return oldIndex(self, key)
+    end)
+
+    setreadonly(mt, true)
+end
+
+-- 2. MÀN HÌNH LOADING THẦN THÁNH FULL ĐEN
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeoSuperAnti"
+ScreenGui.DisplayOrder = 2147483647
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = CoreGui
+
+local Background = Instance.new("Frame")
+Background.Size = UDim2.new(1, 0, 1, 0)
+Background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Background.BorderSizePixel = 0
+Background.Parent = ScreenGui
+
+local GlowFrame = Instance.new("Frame")
+GlowFrame.Size = UDim2.new(0.6, 0, 0.2, 0)
+GlowFrame.Position = UDim2.new(0.2, 0, 0.4, 0)
+GlowFrame.BackgroundTransparency = 1
+GlowFrame.Parent = Background
+
+local MainText = Instance.new("TextLabel")
+MainText.Size = UDim2.new(1, 0, 1, 0)
+MainText.BackgroundTransparency = 1
+MainText.TextColor3 = Color3.fromRGB(255, 30, 30)
+MainText.TextSize = 32
+MainText.Font = Enum.Font.FredokaOne
+MainText.Parent = GlowFrame
+
+-- Tiến trình chạy phần trăm 2s
+task.spawn(function()
+    for i = 1, 100 do
+        MainText.Text = "long béo - Đang kích hoạt Anti Cao Cấp: " .. i .. "%"
+        task.wait(0.02)
+    end
+    
+    TweenService:Create(Background, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(MainText, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    
+    task.wait(0.5)
+    ScreenGui:Destroy()
+
+    -- Thông báo "chống ban đã chạy xong" ở giữa màn hình
+    local CenterGui = Instance.new("ScreenGui", CoreGui)
+    CenterGui.DisplayOrder, CenterGui.IgnoreGuiInset = 2147483647, true
+    
+    local CenterLabel = Instance.new("TextLabel", CenterGui)
+    CenterLabel.Size = UDim2.new(0.8, 0, 0.15, 0)
+    CenterLabel.Position = UDim2.new(0.1, 0, 0.425, 0)
+    CenterLabel.BackgroundTransparency = 1
+    CenterLabel.Text = "Chống Ban Cao Cấp Đã Kích Hoạt!"
+    CenterLabel.TextColor3 = Color3.fromRGB(255, 40, 40)
+    CenterLabel.TextSize = 36
+    CenterLabel.Font = Enum.Font.FredokaOne
+    CenterLabel.TextTransparency = 1
+    
+    TweenService:Create(CenterLabel, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+    task.wait(2.5)
+    local fade = TweenService:Create(CenterLabel, TweenInfo.new(0.8), {TextTransparency = 1})
+    fade:Play()
+    fade.Completed:Connect(function() CenterGui:Destroy() end)
+end)
