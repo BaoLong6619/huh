@@ -1,0 +1,348 @@
+-- Long Béo Fly GUI V3 (Fixed Layout)
+-- Author: Long Béo
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local isFlying = false
+local flySpeed = 1
+local flyBV, flyBG, flyConnection
+local goingUp, goingDown = false, false
+
+-- Hàm hỗ trợ Kéo thả (Drag)
+local function enableDrag(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Xóa GUI cũ nếu tồn tại
+if CoreGui:FindFirstChild("LongBeoFlyGuiV3") then
+    CoreGui.LongBeoFlyGuiV3:Destroy()
+end
+
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeoFlyGuiV3"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999999
+ScreenGui.Parent = (gethui and gethui()) or CoreGui
+
+-- 🌟 THÔNG BÁO CHÀO MỪNG HOÀNH TRÁNG (4 GIÂY) 🌟
+local WelcomeFrame = Instance.new("Frame")
+WelcomeFrame.Size = UDim2.new(0, 320, 0, 60)
+WelcomeFrame.Position = UDim2.new(0.5, -160, 0, -80)
+WelcomeFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+WelcomeFrame.BorderSizePixel = 0
+WelcomeFrame.Parent = ScreenGui
+
+local WelcomeCorner = Instance.new("UICorner", WelcomeFrame)
+WelcomeCorner.CornerRadius = UDim.new(0, 10)
+local WelcomeStroke = Instance.new("UIStroke", WelcomeFrame)
+WelcomeStroke.Color = Color3.fromRGB(255, 215, 0)
+WelcomeStroke.Thickness = 2
+
+local WelcomeText = Instance.new("TextLabel")
+WelcomeText.Size = UDim2.new(1, 0, 1, 0)
+WelcomeText.Text = "👑 CHÀO MỪNG ĐÃ SỬ DỤNG HACK CỦA LONG BÉO! 👑"
+WelcomeText.TextColor3 = Color3.fromRGB(255, 215, 0)
+WelcomeText.TextSize = 13
+WelcomeText.Font = Enum.Font.SourceSansBold
+WelcomeText.BackgroundTransparency = 1
+WelcomeText.Parent = WelcomeFrame
+
+TweenService:Create(WelcomeFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -160, 0.05, 0)}):Play()
+task.delay(4, function()
+    local fadeOut = TweenService:Create(WelcomeFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Position = UDim2.new(0.5, -160, 0, -80)})
+    fadeOut:Play()
+    fadeOut.Completed:Connect(function()
+        WelcomeFrame:Destroy()
+    end)
+end)
+
+-- Main Container Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 190, 0, 75)
+MainFrame.Position = UDim2.new(0.3, 0, 0.4, 0)
+MainFrame.BackgroundTransparency = 1
+MainFrame.Parent = ScreenGui
+
+enableDrag(MainFrame)
+
+-- Nút nhỏ thu gọn
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Size = UDim2.new(0, 65, 0, 25)
+OpenBtn.Position = UDim2.new(0.3, 0, 0.4, -30)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(160, 90, 220)
+OpenBtn.Text = "LONG BÉO"
+OpenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenBtn.TextSize = 11
+OpenBtn.Font = Enum.Font.SourceSansBold
+OpenBtn.Visible = false
+OpenBtn.Parent = ScreenGui
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 6)
+
+enableDrag(OpenBtn)
+
+-- HÀNG 1 --
+-- Nút X (Tắt)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 40, 0, 25)
+CloseBtn.Position = UDim2.new(0, 0, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(230, 40, 40)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 16
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Parent = MainFrame
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+
+-- Nút - (Ẩn)
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 50, 0, 25)
+MinimizeBtn.Position = UDim2.new(0, 40, 0, 0)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(150, 70, 210)
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.TextSize = 20
+MinimizeBtn.Font = Enum.Font.SourceSansBold
+MinimizeBtn.BorderSizePixel = 0
+MinimizeBtn.Parent = MainFrame
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 4)
+
+-- HÀNG 2 --
+-- Nút LÊN
+local UpBtn = Instance.new("TextButton")
+UpBtn.Size = UDim2.new(0, 40, 0, 25)
+UpBtn.Position = UDim2.new(0, 0, 0, 25)
+UpBtn.BackgroundColor3 = Color3.fromRGB(40, 200, 100)
+UpBtn.Text = "LÊN"
+UpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+UpBtn.TextSize = 11
+UpBtn.Font = Enum.Font.SourceSansBold
+UpBtn.BorderSizePixel = 0
+UpBtn.Parent = MainFrame
+Instance.new("UICorner", UpBtn).CornerRadius = UDim.new(0, 4)
+
+-- Nút + (Tăng tốc)
+local PlusBtn = Instance.new("TextButton")
+PlusBtn.Size = UDim2.new(0, 50, 0, 25)
+PlusBtn.Position = UDim2.new(0, 40, 0, 25)
+PlusBtn.BackgroundColor3 = Color3.fromRGB(140, 100, 240)
+PlusBtn.Text = "+"
+PlusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlusBtn.TextSize = 18
+PlusBtn.Font = Enum.Font.SourceSansBold
+PlusBtn.BorderSizePixel = 0
+PlusBtn.Parent = MainFrame
+Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 4)
+
+-- Tiêu đề LONG BÉO FLY
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0, 100, 0, 25)
+TitleLabel.Position = UDim2.new(0, 90, 0, 25)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(230, 40, 230)
+TitleLabel.Text = "LONG BÉO FLY"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 12
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.BorderSizePixel = 0
+TitleLabel.Parent = MainFrame
+Instance.new("UICorner", TitleLabel).CornerRadius = UDim.new(0, 4)
+
+-- HÀNG 3 --
+-- Nút XUỐNG
+local DownBtn = Instance.new("TextButton")
+DownBtn.Size = UDim2.new(0, 40, 0, 25)
+DownBtn.Position = UDim2.new(0, 0, 0, 50)
+DownBtn.BackgroundColor3 = Color3.fromRGB(160, 220, 40)
+DownBtn.Text = "XUỐNG"
+DownBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+DownBtn.TextSize = 10
+DownBtn.Font = Enum.Font.SourceSansBold
+DownBtn.BorderSizePixel = 0
+DownBtn.Parent = MainFrame
+Instance.new("UICorner", DownBtn).CornerRadius = UDim.new(0, 4)
+
+-- Nút - (Giảm tốc) [ĐÃ FIX KÍCH THƯỚC VỀ 25]
+local MinusBtn = Instance.new("TextButton")
+MinusBtn.Size = UDim2.new(0, 50, 0, 25)
+MinusBtn.Position = UDim2.new(0, 40, 0, 50)
+MinusBtn.BackgroundColor3 = Color3.fromRGB(40, 200, 240)
+MinusBtn.Text = "-"
+MinusBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinusBtn.TextSize = 18
+MinusBtn.Font = Enum.Font.SourceSansBold
+MinusBtn.BorderSizePixel = 0
+MinusBtn.Parent = MainFrame
+Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 4)
+
+-- Ô hiển thị tốc độ
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0, 50, 0, 25)
+SpeedBox.Position = UDim2.new(0, 90, 0, 50)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
+SpeedBox.Text = "1"
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.TextSize = 18
+SpeedBox.Font = Enum.Font.SourceSansBold
+SpeedBox.BorderSizePixel = 0
+SpeedBox.Parent = MainFrame
+Instance.new("UICorner", SpeedBox).CornerRadius = UDim.new(0, 4)
+
+-- Nút BAY
+local FlyToggleBtn = Instance.new("TextButton")
+FlyToggleBtn.Size = UDim2.new(0, 50, 0, 25)
+FlyToggleBtn.Position = UDim2.new(0, 140, 0, 50)
+FlyToggleBtn.BackgroundColor3 = Color3.fromRGB(240, 220, 40)
+FlyToggleBtn.Text = "Bay"
+FlyToggleBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+FlyToggleBtn.TextSize = 14
+FlyToggleBtn.Font = Enum.Font.SourceSansBold
+FlyToggleBtn.BorderSizePixel = 0
+FlyToggleBtn.Parent = MainFrame
+Instance.new("UICorner", FlyToggleBtn).CornerRadius = UDim.new(0, 4)
+
+-- LOGIC XỬ LÝ BAY (XE & NGƯỜI)
+local function stopFly()
+    isFlying = false
+    FlyToggleBtn.Text = "Bay"
+    FlyToggleBtn.BackgroundColor3 = Color3.fromRGB(240, 220, 40)
+    if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+    if flyBV then flyBV:Destroy() flyBV = nil end
+    if flyBG then flyBG:Destroy() flyBG = nil end
+    
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildWhichIsA("Humanoid") then
+        char.Humanoid.PlatformStand = false
+    end
+end
+
+local function startFly()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    local seat = humanoid and humanoid.SeatPart
+    
+    local targetPart = char.HumanoidRootPart
+    if seat then
+        local vehicle = seat.Parent
+        while vehicle and not vehicle:IsA("Model") do
+            vehicle = vehicle.Parent
+        end
+        targetPart = vehicle and (vehicle.PrimaryPart or seat) or seat
+    else
+        humanoid.PlatformStand = true
+    end
+
+    isFlying = true
+    FlyToggleBtn.Text = "Tắt Bay"
+    FlyToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    flyBV.Velocity = Vector3.new(0, 0, 0)
+    flyBV.Parent = targetPart
+
+    flyBG = Instance.new("BodyGyro")
+    flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    flyBG.P = 10000
+    flyBG.CFrame = targetPart.CFrame
+    flyBG.Parent = targetPart
+
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not isFlying or not char or not targetPart or not targetPart.Parent then
+            stopFly()
+            return
+        end
+
+        local moveDir = Vector3.new()
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
+        
+        if goingUp or UserInputService:IsKeyDown(Enum.KeyCode.Space) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if goingDown or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+
+        flyBG.CFrame = Camera.CFrame
+        flyBV.Velocity = moveDir * (flySpeed * 50)
+    end)
+end
+
+-- SỰ KIỆN NÚT BẤM GUI
+FlyToggleBtn.MouseButton1Click:Connect(function()
+    if isFlying then stopFly() else startFly() end
+end)
+
+PlusBtn.MouseButton1Click:Connect(function()
+    flySpeed = flySpeed + 1
+    SpeedBox.Text = tostring(flySpeed)
+end)
+
+MinusBtn.MouseButton1Click:Connect(function()
+    if flySpeed > 1 then
+        flySpeed = flySpeed - 1
+        SpeedBox.Text = tostring(flySpeed)
+    end
+end)
+
+SpeedBox.FocusLost:Connect(function()
+    local val = tonumber(SpeedBox.Text)
+    if val then flySpeed = val else SpeedBox.Text = tostring(flySpeed) end
+end)
+
+UpBtn.MouseButton1Down:Connect(function() goingUp = true end)
+UpBtn.MouseButton1Up:Connect(function() goingUp = false end)
+DownBtn.MouseButton1Down:Connect(function() goingDown = true end)
+DownBtn.MouseButton1Up:Connect(function() goingDown = false end)
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenBtn.Visible = true
+end)
+
+OpenBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenBtn.Visible = false
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    stopFly()
+    ScreenGui:Destroy()
+end)
