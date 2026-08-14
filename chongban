@@ -1,0 +1,206 @@
+-- Script Long Béo - Ultimate Loading & Anti-Ban Active
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- 1. Tạo màn hình loading đen full 100% (Phủ tràn màn hình)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeoUltimateLoading"
+ScreenGui.DisplayOrder = 2147483647 -- Thứ tự hiển thị tối đa
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true -- Che hoàn toàn cả thanh Roblox TopBar
+ScreenGui.Parent = CoreGui
+
+local Background = Instance.new("Frame")
+Background.Size = UDim2.new(1, 0, 1, 0)
+Background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Background.BorderSizePixel = 0
+Background.Parent = ScreenGui
+
+-- Tạo hiệu ứng khung phát sáng trung tâm
+local GlowFrame = Instance.new("Frame")
+GlowFrame.Size = UDim2.new(0.6, 0, 0.2, 0)
+GlowFrame.Position = UDim2.new(0.2, 0, 0.4, 0)
+GlowFrame.BackgroundTransparency = 1
+GlowFrame.Parent = Background
+
+-- Lớp bóng đổ đậm sâu (Deep Shadow)
+local DeepShadow = Instance.new("TextLabel")
+DeepShadow.Size = UDim2.new(1, 0, 1, 0)
+DeepShadow.Position = UDim2.new(0, 4, 0, 4)
+DeepShadow.BackgroundTransparency = 1
+DeepShadow.TextColor3 = Color3.fromRGB(40, 0, 0)
+DeepShadow.TextSize = 32
+DeepShadow.Font = Enum.Font.FredokaOne
+DeepShadow.Text = "long béo - Đang chạy chống ban: 1%"
+DeepShadow.Parent = GlowFrame
+
+-- Lớp bóng đổ phát sáng đỏ (Red Glow)
+local RedGlow = Instance.new("TextLabel")
+RedGlow.Size = UDim2.new(1, 0, 1, 0)
+RedGlow.Position = UDim2.new(0, 2, 0, 2)
+RedGlow.BackgroundTransparency = 1
+RedGlow.TextColor3 = Color3.fromRGB(150, 0, 0)
+RedGlow.TextSize = 32
+RedGlow.Font = Enum.Font.FredokaOne
+RedGlow.Text = "long béo - Đang chạy chống ban: 1%"
+RedGlow.Parent = GlowFrame
+
+-- Lớp chữ chính thần thánh (Main Divine Text)
+local MainText = Instance.new("TextLabel")
+MainText.Size = UDim2.new(1, 0, 1, 0)
+MainText.Position = UDim2.new(0, 0, 0, 0)
+MainText.BackgroundTransparency = 1
+MainText.TextColor3 = Color3.fromRGB(255, 30, 30)
+MainText.TextSize = 32
+MainText.Font = Enum.Font.FredokaOne
+MainText.Text = "long béo - Đang chạy chống ban: 1%"
+MainText.Parent = GlowFrame
+
+-- 2. Tiến trình chạy 1% -> 100% trong 2 giây
+local duration = 2
+local steps = 100
+local waitTime = duration / steps
+
+task.spawn(function()
+    for i = 1, 100 do
+        local txt = "long béo - Đang chạy chống ban: " .. i .. "%"
+        MainText.Text = txt
+        RedGlow.Text = txt
+        DeepShadow.Text = txt
+        task.wait(waitTime)
+    end
+    
+    -- Fade out làm mờ màn hình đen siêu mượt
+    local tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    local tweenBg = TweenService:Create(Background, tweenInfo, {BackgroundTransparency = 1})
+    local tweenT1 = TweenService:Create(MainText, tweenInfo, {TextTransparency = 1})
+    local tweenT2 = TweenService:Create(RedGlow, tweenInfo, {TextTransparency = 1})
+    local tweenT3 = TweenService:Create(DeepShadow, tweenInfo, {TextTransparency = 1})
+    
+    tweenBg:Play()
+    tweenT1:Play()
+    tweenT2:Play()
+    tweenT3:Play()
+    
+    tweenBg.Completed:Connect(function()
+        ScreenGui:Destroy()
+        
+        -- 3. Kích hoạt Anti-Kick LocalScript
+        local hook
+        hook = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            if self == LocalPlayer and (method == "Kick" or method == "kick") then
+                return nil
+            end
+            return hook(self, ...)
+        end)
+        
+        -- 4. Thông báo "chống ban đã chạy xong" xuất hiện chính giữa màn hình
+        local CenterGui = Instance.new("ScreenGui")
+        CenterGui.Name = "AntiBanSuccessGui"
+        CenterGui.DisplayOrder = 2147483647
+        CenterGui.ResetOnSpawn = false
+        CenterGui.IgnoreGuiInset = true
+        CenterGui.Parent = CoreGui
+
+        local CenterLabel = Instance.new("TextLabel")
+        CenterLabel.Size = UDim2.new(0.8, 0, 0.15, 0)
+        CenterLabel.Position = UDim2.new(0.1, 0, 0.425, 0)
+        CenterLabel.BackgroundTransparency = 1
+        CenterLabel.Text = "chống ban đã chạy xong"
+        CenterLabel.TextColor3 = Color3.fromRGB(255, 40, 40)
+        CenterLabel.TextSize = 36
+        CenterLabel.Font = Enum.Font.FredokaOne
+        CenterLabel.TextTransparency = 1
+        CenterLabel.Parent = CenterGui
+
+        -- Shadow cho thông báo giữa màn hình
+        local CenterShadow = Instance.new("TextLabel")
+        CenterShadow.Size = UDim2.new(1, 0, 1, 0)
+        CenterShadow.Position = UDim2.new(0, 3, 0, 3)
+        CenterShadow.BackgroundTransparency = 1
+        CenterShadow.Text = "chống ban đã chạy xong"
+        CenterShadow.TextColor3 = Color3.fromRGB(50, 0, 0)
+        CenterShadow.TextSize = 36
+        CenterShadow.Font = Enum.Font.FredokaOne
+        CenterShadow.TextTransparency = 1
+        CenterShadow.Parent = CenterLabel
+
+        -- Hiệu ứng hiện ra rồi mờ dần
+        local showTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        local hideTweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        
+        TweenService:Create(CenterLabel, showTweenInfo, {TextTransparency = 0}):Play()
+        TweenService:Create(CenterShadow, showTweenInfo, {TextTransparency = 0}):Play()
+        
+        task.wait(2.5) -- Hiển thị trong 2.5 giây
+        
+        local fade1 = TweenService:Create(CenterLabel, hideTweenInfo, {TextTransparency = 1})
+        local fade2 = TweenService:Create(CenterShadow, hideTweenInfo, {TextTransparency = 1})
+        fade1:Play()
+        fade2:Play()
+        
+        fade1.Completed:Connect(function()
+            CenterGui:Destroy()
+        end)
+
+        -- 5. Giữ lại khung thông báo Anti-Kick nhỏ bên góc (như hình mẫu)
+        local NotificationGui = Instance.new("ScreenGui")
+        NotificationGui.Name = "ClientAntikickGui"
+        NotificationGui.DisplayOrder = 2147483647
+        NotificationGui.ResetOnSpawn = false
+        NotificationGui.Parent = CoreGui
+
+        local NotifFrame = Instance.new("Frame")
+        NotifFrame.Size = UDim2.new(0, 320, 0, 130)
+        NotifFrame.Position = UDim2.new(0.02, 0, 0.65, 0)
+        NotifFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        NotifFrame.BorderSizePixel = 0
+        NotifFrame.Active = true
+        NotifFrame.Draggable = true
+        NotifFrame.Parent = NotificationGui
+
+        local TopBar = Instance.new("Frame")
+        TopBar.Size = UDim2.new(1, 0, 0, 25)
+        TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        TopBar.BorderSizePixel = 0
+        TopBar.Parent = NotifFrame
+
+        local Title = Instance.new("TextLabel")
+        Title.Size = UDim2.new(1, -30, 1, 0)
+        Title.Position = UDim2.new(0, 10, 0, 0)
+        Title.BackgroundTransparency = 1
+        Title.Text = "Client Antikick"
+        Title.TextColor3 = Color3.fromRGB(220, 220, 220)
+        Title.TextXAlignment = Enum.TextXAlignment.Left
+        Title.Font = Enum.Font.SourceSans
+        Title.TextSize = 14
+        Title.Parent = TopBar
+
+        local CloseBtn = Instance.new("TextButton")
+        CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+        CloseBtn.Position = UDim2.new(1, -25, 0, 0)
+        CloseBtn.BackgroundTransparency = 1
+        CloseBtn.Text = "✕"
+        CloseBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+        CloseBtn.TextSize = 14
+        CloseBtn.Font = Enum.Font.SourceSans
+        CloseBtn.Parent = TopBar
+        CloseBtn.MouseButton1Click:Connect(function()
+            NotificationGui:Destroy()
+        end)
+
+        local Content = Instance.new("TextLabel")
+        Content.Size = UDim2.new(1, -20, 1, -35)
+        Content.Position = UDim2.new(0, 10, 0, 30)
+        Content.BackgroundTransparency = 1
+        Content.Text = "Client anti kick is now active (only effective\non localscript kick)"
+        Content.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Content.TextWrapped = true
+        Content.Font = Enum.Font.SourceSans
+        Content.TextSize = 16
+        Content.Parent = NotifFrame
+    end)
+end)
