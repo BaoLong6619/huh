@@ -1,0 +1,1151 @@
+-- [[ SCRIPT CAMERA LONG BÉO - UPDATE: AUTO HIDE GUI, EDIT POSITION & SNAP TO CAMERA VIEW ]] --
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local CurrentCamera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+local PlacedCameras = {}
+local TempCamModel = nil
+local TempMainPart = nil
+local currentCamIndex = 1
+local editingCamIndex = nil -- Biến theo dõi cam đang được chỉnh sửa vị trí
+
+-- Biến cho Tab 2 (Spectate)
+local spectateTarget = nil
+local spectateMode = "Normal"
+local spectateConnection = nil
+
+-- BẢO ĐẢM TẠO SCREENGUI TRÊN CÙNG
+local ParentContainer = nil
+if gethui then
+    ParentContainer = gethui()
+elseif syn and syn.protect_gui then
+    ParentContainer = Instance.new("Folder")
+    syn.protect_gui(ParentContainer)
+    ParentContainer.Parent = CoreGui
+else
+    local success, _ = pcall(function()
+        local test = Instance.new("Folder", CoreGui)
+        test:Destroy()
+    end)
+    if success then
+        ParentContainer = CoreGui
+    else
+        ParentContainer = LocalPlayer:WaitForChild("PlayerGui")
+    end
+end
+
+for _, oldGui in pairs(ParentContainer:GetChildren()) do
+    if oldGui.Name == "LongBeo_AnhMinh_CameraGui" then
+        oldGui:Destroy()
+    end
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeo_AnhMinh_CameraGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999999
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = ParentContainer
+
+-- 1. NÚT LẺ KÉO ĐƯỢC ("long béo")
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "long béo"
+ToggleBtn.Size = UDim2.new(0, 110, 0, 38)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0.15, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+ToggleBtn.Text = "long béo 🎥"
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 16
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+ToggleBtn.ZIndex = 100
+ToggleBtn.Parent = ScreenGui
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = ToggleBtn
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(255, 215, 0)
+ToggleStroke.Thickness = 2
+ToggleStroke.Parent = ToggleBtn
+
+-- 2. KHUNG MAIN GUI ("Anh Minh...")
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 340)
+MainFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = true
+MainFrame.ZIndex = 100
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 215, 0)
+MainStroke.Thickness = 2
+MainStroke.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 35)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+TitleLabel.Text = "👑 Anh Minh... 👑"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.TextSize = 18
+TitleLabel.ZIndex = 101
+TitleLabel.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleLabel
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- KHUNG NÚT CHUYỂN TAB
+local TabButtonFrame = Instance.new("Frame")
+TabButtonFrame.Size = UDim2.new(0.9, 0, 0, 30)
+TabButtonFrame.Position = UDim2.new(0.05, 0, 0.12, 0)
+TabButtonFrame.BackgroundTransparency = 1
+TabButtonFrame.ZIndex = 101
+TabButtonFrame.Parent = MainFrame
+
+local Tab1Btn = Instance.new("TextButton")
+Tab1Btn.Size = UDim2.new(0.48, 0, 1, 0)
+Tab1Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+Tab1Btn.Text = "📷 Cam Đặt"
+Tab1Btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+Tab1Btn.Font = Enum.Font.SourceSansBold
+Tab1Btn.TextSize = 14
+Tab1Btn.ZIndex = 102
+Tab1Btn.Parent = TabButtonFrame
+
+local Tab1Corner = Instance.new("UICorner")
+Tab1Corner.CornerRadius = UDim.new(0, 6)
+Tab1Corner.Parent = Tab1Btn
+
+local Tab2Btn = Instance.new("TextButton")
+Tab2Btn.Size = UDim2.new(0.48, 0, 1, 0)
+Tab2Btn.Position = UDim2.new(0.52, 0, 0, 0)
+Tab2Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Tab2Btn.Text = "👥 Người Chơi"
+Tab2Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+Tab2Btn.Font = Enum.Font.SourceSansBold
+Tab2Btn.TextSize = 14
+Tab2Btn.ZIndex = 102
+Tab2Btn.Parent = TabButtonFrame
+
+local Tab2Corner = Instance.new("UICorner")
+Tab2Corner.CornerRadius = UDim.new(0, 6)
+Tab2Corner.Parent = Tab2Btn
+
+-- TAB 1 CONTAINER
+local Tab1Container = Instance.new("Frame")
+Tab1Container.Size = UDim2.new(0.9, 0, 0.72, 0)
+Tab1Container.Position = UDim2.new(0.05, 0, 0.23, 0)
+Tab1Container.BackgroundTransparency = 1
+Tab1Container.Visible = true
+Tab1Container.ZIndex = 101
+Tab1Container.Parent = MainFrame
+
+local UIList1 = Instance.new("UIListLayout")
+UIList1.SortOrder = Enum.SortOrder.LayoutOrder
+UIList1.Padding = UDim.new(0, 8)
+UIList1.Parent = Tab1Container
+
+local PlaceCamBtn = Instance.new("TextButton")
+PlaceCamBtn.Size = UDim2.new(1, 0, 0, 35)
+PlaceCamBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+PlaceCamBtn.Text = "➕ Đặt Camera Mới"
+PlaceCamBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlaceCamBtn.Font = Enum.Font.SourceSansBold
+PlaceCamBtn.TextSize = 15
+PlaceCamBtn.ZIndex = 102
+PlaceCamBtn.Parent = Tab1Container
+
+local BtnCorner1 = Instance.new("UICorner")
+BtnCorner1.CornerRadius = UDim.new(0, 6)
+BtnCorner1.Parent = PlaceCamBtn
+
+local CamListScroll = Instance.new("ScrollingFrame")
+CamListScroll.Size = UDim2.new(1, 0, 0, 140)
+CamListScroll.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+CamListScroll.BorderSizePixel = 0
+CamListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+CamListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+CamListScroll.ZIndex = 102
+CamListScroll.Parent = Tab1Container
+
+local ScrollList1 = Instance.new("UIListLayout")
+ScrollList1.SortOrder = Enum.SortOrder.LayoutOrder
+ScrollList1.Padding = UDim.new(0, 4)
+ScrollList1.Parent = CamListScroll
+
+local ResetCamBtn = Instance.new("TextButton")
+ResetCamBtn.Size = UDim2.new(1, 0, 0, 35)
+ResetCamBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+ResetCamBtn.Text = "🔄 Thoát Xem Camera"
+ResetCamBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ResetCamBtn.Font = Enum.Font.SourceSansBold
+ResetCamBtn.TextSize = 15
+ResetCamBtn.ZIndex = 102
+ResetCamBtn.Parent = Tab1Container
+
+local BtnCorner2 = Instance.new("UICorner")
+BtnCorner2.CornerRadius = UDim.new(0, 6)
+BtnCorner2.Parent = ResetCamBtn
+
+-- TAB 2 CONTAINER
+local Tab2Container = Instance.new("Frame")
+Tab2Container.Size = UDim2.new(0.9, 0, 0.72, 0)
+Tab2Container.Position = UDim2.new(0.05, 0, 0.23, 0)
+Tab2Container.BackgroundTransparency = 1
+Tab2Container.Visible = false
+Tab2Container.ZIndex = 101
+Tab2Container.Parent = MainFrame
+
+local PlayerListScroll = Instance.new("ScrollingFrame")
+PlayerListScroll.Size = UDim2.new(1, 0, 0, 180)
+PlayerListScroll.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+PlayerListScroll.BorderSizePixel = 0
+PlayerListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlayerListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerListScroll.ZIndex = 102
+PlayerListScroll.Parent = Tab2Container
+
+local ScrollList2 = Instance.new("UIListLayout")
+ScrollList2.SortOrder = Enum.SortOrder.LayoutOrder
+ScrollList2.Padding = UDim.new(0, 4)
+ScrollList2.Parent = PlayerListScroll
+
+local ModeToggleBtn = Instance.new("TextButton")
+ModeToggleBtn.Size = UDim2.new(1, 0, 0, 35)
+ModeToggleBtn.Position = UDim2.new(0, 0, 0.82, 0)
+ModeToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+ModeToggleBtn.Text = "🎥 Chế Độ Xem: Thường (360°)"
+ModeToggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+ModeToggleBtn.Font = Enum.Font.SourceSansBold
+ModeToggleBtn.TextSize = 14
+ModeToggleBtn.ZIndex = 102
+ModeToggleBtn.Parent = Tab2Container
+
+local ModeCorner = Instance.new("UICorner")
+ModeCorner.CornerRadius = UDim.new(0, 6)
+ModeCorner.Parent = ModeToggleBtn
+
+Tab1Btn.MouseButton1Click:Connect(function()
+    Tab1Container.Visible = true
+    Tab2Container.Visible = false
+    Tab1Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    Tab1Btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+    Tab2Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    Tab2Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+end)
+
+Tab2Btn.MouseButton1Click:Connect(function()
+    Tab1Container.Visible = false
+    Tab2Container.Visible = true
+    Tab2Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+    Tab2Btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+    Tab1Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    Tab1Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+end)
+
+ModeToggleBtn.MouseButton1Click:Connect(function()
+    if spectateMode == "Normal" then
+        spectateMode = "FirstPerson"
+        ModeToggleBtn.Text = "👁️ Chế Độ Xem: Góc Nhìn Thực"
+    else
+        spectateMode = "Normal"
+        ModeToggleBtn.Text = "🎥 Chế Độ Xem: Thường (360°)"
+    end
+end)
+
+-- 3. BẢNG ĐIỀU CHỈNH CAMERA (TAB 1)
+local AdjustGUI = Instance.new("Frame")
+AdjustGUI.Name = "AdjustGUI"
+AdjustGUI.Size = UDim2.new(0, 280, 0, 310)
+AdjustGUI.Position = UDim2.new(0.02, 0, 0.25, 0)
+AdjustGUI.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+AdjustGUI.Active = true
+AdjustGUI.Draggable = true
+AdjustGUI.Visible = false
+AdjustGUI.ZIndex = 100
+AdjustGUI.Parent = ScreenGui
+
+local AdjCorner = Instance.new("UICorner")
+AdjCorner.CornerRadius = UDim.new(0, 10)
+AdjCorner.Parent = AdjustGUI
+
+local AdjStroke = Instance.new("UIStroke")
+AdjStroke.Color = Color3.fromRGB(255, 215, 0)
+AdjStroke.Thickness = 2
+AdjStroke.Parent = AdjustGUI
+
+local AdjTitle = Instance.new("TextLabel")
+AdjTitle.Size = UDim2.new(1, 0, 0, 30)
+AdjTitle.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+AdjTitle.Text = "⚙️ BẢNG ĐIỀU CHỈNH CAMERA"
+AdjTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+AdjTitle.Font = Enum.Font.SourceSansBold
+AdjTitle.TextSize = 14
+AdjTitle.ZIndex = 101
+AdjTitle.Parent = AdjustGUI
+
+local Sec1Label = Instance.new("TextLabel")
+Sec1Label.Size = UDim2.new(1, 0, 0, 20)
+Sec1Label.Position = UDim2.new(0, 0, 0.10, 0)
+Sec1Label.BackgroundTransparency = 1
+Sec1Label.Text = "1️⃣ Vị Trí Camera"
+Sec1Label.TextColor3 = Color3.fromRGB(200, 200, 255)
+Sec1Label.Font = Enum.Font.SourceSansBold
+Sec1Label.TextSize = 13
+Sec1Label.ZIndex = 101
+Sec1Label.Parent = AdjustGUI
+
+local PosFrame = Instance.new("Frame")
+PosFrame.Size = UDim2.new(0.9, 0, 0.23, 0)
+PosFrame.Position = UDim2.new(0.05, 0, 0.16, 0)
+PosFrame.BackgroundTransparency = 1
+PosFrame.ZIndex = 101
+PosFrame.Parent = AdjustGUI
+
+local function CreateBtn(name, text, size, pos, parent)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = size
+    btn.Position = pos
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(40, 45, 60)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 13
+    btn.ZIndex = 102
+    btn.Parent = parent
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = btn
+    return btn
+end
+
+local MoveFwd = CreateBtn("Fwd", "▲ Tới", UDim2.new(0.28, 0, 0.42, 0), UDim2.new(0.36, 0, 0, 0), PosFrame)
+local MoveBack = CreateBtn("Back", "▼ Lùi", UDim2.new(0.28, 0, 0.42, 0), UDim2.new(0.36, 0, 0.52, 0), PosFrame)
+local MoveLeft = CreateBtn("Left", "◄ Trái", UDim2.new(0.28, 0, 0.42, 0), UDim2.new(0.05, 0, 0.52, 0), PosFrame)
+local MoveRight = CreateBtn("Right", "Phải ►", UDim2.new(0.28, 0, 0.42, 0), UDim2.new(0.67, 0, 0.52, 0), PosFrame)
+local MoveUp = CreateBtn("Up", "⬆ Lên", UDim2.new(0.28, 0, 0.42, 0), UDim2.new(0.05, 0, 0), PosFrame)
+local MoveDown = CreateBtn("Down", "⬇ Xuống", UDim2.new(0.28, 0, 0.42, 0), UDim2.new(0.67, 0, 0), PosFrame)
+
+local Sec2Label = Instance.new("TextLabel")
+Sec2Label.Size = UDim2.new(1, 0, 0, 20)
+Sec2Label.Position = UDim2.new(0, 0, 0.40, 0)
+Sec2Label.BackgroundTransparency = 1
+Sec2Label.Text = "2️⃣ Góc Nhìn & Công Cụ"
+Sec2Label.TextColor3 = Color3.fromRGB(200, 200, 255)
+Sec2Label.Font = Enum.Font.SourceSansBold
+Sec2Label.TextSize = 13
+Sec2Label.ZIndex = 101
+Sec2Label.Parent = AdjustGUI
+
+local RotFrame = Instance.new("Frame")
+RotFrame.Size = UDim2.new(0.9, 0, 0.44, 0)
+RotFrame.Position = UDim2.new(0.05, 0, 0.46, 0)
+RotFrame.BackgroundTransparency = 1
+RotFrame.ZIndex = 101
+RotFrame.Parent = AdjustGUI
+
+local RotUp = CreateBtn("RotUp", "▲ Ngước", UDim2.new(0.42, 0, 0.23, 0), UDim2.new(0.05, 0, 0), RotFrame)
+local RotDown = CreateBtn("RotDown", "▼ Cúi", UDim2.new(0.42, 0, 0.23, 0), UDim2.new(0.53, 0, 0), RotFrame)
+local RotLeft = CreateBtn("RotLeft", "◄ Xoay Trái", UDim2.new(0.42, 0, 0.23, 0), UDim2.new(0.05, 0, 0.26, 0), RotFrame)
+local RotRight = CreateBtn("RotRight", "Xoay Phải ►", UDim2.new(0.42, 0, 0.23, 0), UDim2.new(0.53, 0, 0.26, 0), RotFrame)
+
+local QuickAdjustBtn = CreateBtn("QuickAdjust", "⚡ Chỉnh Nhanh", UDim2.new(0.42, 0, 0.23, 0), UDim2.new(0.05, 0, 0.52, 0), RotFrame)
+QuickAdjustBtn.BackgroundColor3 = Color3.fromRGB(70, 50, 110)
+
+local ReverseBtn = CreateBtn("Reverse", "🔄 Quay Ngược", UDim2.new(0.42, 0, 0.23, 0), UDim2.new(0.53, 0, 0.52, 0), RotFrame)
+ReverseBtn.BackgroundColor3 = Color3.fromRGB(50, 80, 110)
+
+-- NÚT ĐẶT THEO GÓC NHÌN MỚI TẠO
+local ViewSnapBtn = CreateBtn("ViewSnap", "👁️ Đặt Theo Góc Nhìn", UDim2.new(0.9, 0, 0.21, 0), UDim2.new(0.05, 0, 0.77, 0), RotFrame)
+ViewSnapBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 150)
+
+local ConfirmBtn = CreateBtn("Confirm", "✅ Xác Nhận", UDim2.new(0.42, 0, 0.08, 0), UDim2.new(0.05, 0, 0.90, 0), AdjustGUI)
+ConfirmBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 60)
+local CancelBtn = CreateBtn("Cancel", "❌ Hủy Bỏ", UDim2.new(0.42, 0, 0.08, 0), UDim2.new(0.53, 0, 0.90, 0), AdjustGUI)
+CancelBtn.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+
+-- 4. HITBOX QUÝ TỘC
+local RoyalFrame = Instance.new("Frame")
+RoyalFrame.Size = UDim2.new(0, 270, 0, 150)
+RoyalFrame.Position = UDim2.new(0.5, -135, 0.4, -75)
+RoyalFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+RoyalFrame.Visible = false
+RoyalFrame.ZIndex = 110
+RoyalFrame.Parent = ScreenGui
+
+local RoyalCorner = Instance.new("UICorner")
+RoyalCorner.CornerRadius = UDim.new(0, 12)
+RoyalCorner.Parent = RoyalFrame
+
+local RoyalStroke = Instance.new("UIStroke")
+RoyalStroke.Color = Color3.fromRGB(255, 215, 0)
+RoyalStroke.Thickness = 2
+RoyalStroke.Parent = RoyalFrame
+
+local RoyalTitle = Instance.new("TextLabel")
+RoyalTitle.Size = UDim2.new(1, 0, 0, 35)
+RoyalTitle.BackgroundTransparency = 1
+RoyalTitle.Text = "✨ HITBOX QUÝ TỘC ✨\nNhập Tên Camera"
+RoyalTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+RoyalTitle.Font = Enum.Font.SourceSansBold
+RoyalTitle.TextSize = 14
+RoyalTitle.ZIndex = 111
+RoyalTitle.Parent = RoyalFrame
+
+local NameInput = Instance.new("TextBox")
+NameInput.Size = UDim2.new(0.8, 0, 0, 30)
+NameInput.Position = UDim2.new(0.1, 0, 0.38, 0)
+NameInput.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+NameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+NameInput.PlaceholderText = "Nhập tên camera..."
+NameInput.Font = Enum.Font.SourceSans
+NameInput.TextSize = 14
+NameInput.ZIndex = 111
+NameInput.Parent = RoyalFrame
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = NameInput
+
+local SaveCamBtn = Instance.new("TextButton")
+SaveCamBtn.Size = UDim2.new(0.6, 0, 0, 30)
+SaveCamBtn.Position = UDim2.new(0.2, 0, 0.72, 0)
+SaveCamBtn.BackgroundColor3 = Color3.fromRGB(218, 165, 32)
+SaveCamBtn.Text = "👑 LƯU CAMERA 👑"
+SaveCamBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+SaveCamBtn.Font = Enum.Font.SourceSansBold
+SaveCamBtn.TextSize = 14
+SaveCamBtn.ZIndex = 111
+SaveCamBtn.Parent = RoyalFrame
+
+local SaveCorner = Instance.new("UICorner")
+SaveCorner.CornerRadius = UDim.new(0, 6)
+SaveCorner.Parent = SaveCamBtn
+
+-- 5. THANH TRƯỢT ZOOM DỌC & BAR ĐIỀU KHIỂN QUAN SÁT
+local ZoomSliderFrame = Instance.new("Frame")
+ZoomSliderFrame.Size = UDim2.new(0, 35, 0, 160)
+ZoomSliderFrame.Position = UDim2.new(0.93, 0, 0.35, 0)
+ZoomSliderFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+ZoomSliderFrame.Visible = false
+ZoomSliderFrame.ZIndex = 100
+ZoomSliderFrame.Parent = ScreenGui
+
+local ZoomCorner = Instance.new("UICorner")
+ZoomCorner.CornerRadius = UDim.new(0, 8)
+ZoomCorner.Parent = ZoomSliderFrame
+
+local ZoomTrack = Instance.new("Frame")
+ZoomTrack.Size = UDim2.new(0, 6, 0, 130)
+ZoomTrack.Position = UDim2.new(0.5, -3, 0.1, 0)
+ZoomTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+ZoomTrack.ZIndex = 101
+ZoomTrack.Parent = ZoomSliderFrame
+
+local ZoomTrackCorner = Instance.new("UICorner")
+ZoomTrackCorner.CornerRadius = UDim.new(1, 0)
+ZoomTrackCorner.Parent = ZoomTrack
+
+local ZoomKnob = Instance.new("TextButton")
+ZoomKnob.Size = UDim2.new(0, 20, 0, 20)
+ZoomKnob.Position = UDim2.new(0.5, -10, 0.5, -10)
+ZoomKnob.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+ZoomKnob.Text = ""
+ZoomKnob.ZIndex = 102
+ZoomKnob.Parent = ZoomSliderFrame
+
+local KnobCorner = Instance.new("UICorner")
+KnobCorner.CornerRadius = UDim.new(1, 0)
+KnobCorner.Parent = ZoomKnob
+
+local CamControlBar = Instance.new("Frame")
+CamControlBar.Size = UDim2.new(0, 320, 0, 40)
+CamControlBar.Position = UDim2.new(0.5, -160, 0.05, 0)
+CamControlBar.BackgroundTransparency = 1
+CamControlBar.Visible = false
+CamControlBar.ZIndex = 100
+CamControlBar.Parent = ScreenGui
+
+local PrevCamBtn = Instance.new("TextButton")
+PrevCamBtn.Size = UDim2.new(0, 40, 1, 0)
+PrevCamBtn.Position = UDim2.new(0, 0, 0, 0)
+PrevCamBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+PrevCamBtn.Text = "◄"
+PrevCamBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+PrevCamBtn.Font = Enum.Font.SourceSansBold
+PrevCamBtn.TextSize = 20
+PrevCamBtn.ZIndex = 101
+PrevCamBtn.Parent = CamControlBar
+
+local PrevCorner = Instance.new("UICorner")
+PrevCorner.CornerRadius = UDim.new(0, 8)
+PrevCorner.Parent = PrevCamBtn
+
+local SpectateNameLabel = Instance.new("TextLabel")
+SpectateNameLabel.Size = UDim2.new(0, 210, 1, 0)
+SpectateNameLabel.Position = UDim2.new(0, 45, 0, 0)
+SpectateNameLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+SpectateNameLabel.Text = "👀 Đang Xem: ---"
+SpectateNameLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+SpectateNameLabel.Font = Enum.Font.SourceSansBold
+SpectateNameLabel.TextSize = 14
+SpectateNameLabel.ZIndex = 101
+SpectateNameLabel.Parent = CamControlBar
+
+local NameCorner = Instance.new("UICorner")
+NameCorner.CornerRadius = UDim.new(0, 8)
+NameCorner.Parent = SpectateNameLabel
+
+local NextCamBtn = Instance.new("TextButton")
+NextCamBtn.Size = UDim2.new(0, 40, 1, 0)
+NextCamBtn.Position = UDim2.new(0, 260, 0, 0)
+NextCamBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+NextCamBtn.Text = "►"
+NextCamBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+NextCamBtn.Font = Enum.Font.SourceSansBold
+NextCamBtn.TextSize = 20
+NextCamBtn.ZIndex = 101
+NextCamBtn.Parent = CamControlBar
+
+local NextCorner = Instance.new("UICorner")
+NextCorner.CornerRadius = UDim.new(0, 8)
+NextCorner.Parent = NextCamBtn
+
+local QuickExitBtn = Instance.new("TextButton")
+QuickExitBtn.Size = UDim2.new(0, 300, 0, 30)
+QuickExitBtn.Position = UDim2.new(0.5, -150, 0.12, 0)
+QuickExitBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+QuickExitBtn.Text = "❌ THOÁT QUAN SÁT"
+QuickExitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuickExitBtn.Font = Enum.Font.SourceSansBold
+QuickExitBtn.TextSize = 14
+QuickExitBtn.Visible = false
+QuickExitBtn.ZIndex = 101
+QuickExitBtn.Parent = ScreenGui
+
+local QuickCorner = Instance.new("UICorner")
+QuickCorner.CornerRadius = UDim.new(0, 6)
+QuickCorner.Parent = QuickExitBtn
+
+-- 6. MENU 3 CHẤM (TAB 1) - THÊM NÚT SỬA VỊ TRÍ
+local OptionMenu = Instance.new("Frame")
+OptionMenu.Size = UDim2.new(0, 130, 0, 100)
+OptionMenu.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+OptionMenu.Visible = false
+OptionMenu.ZIndex = 150
+OptionMenu.Parent = ScreenGui
+
+local OptCorner = Instance.new("UICorner")
+OptCorner.CornerRadius = UDim.new(0, 6)
+OptCorner.Parent = OptionMenu
+
+local OptStroke = Instance.new("UIStroke")
+OptStroke.Color = Color3.fromRGB(255, 215, 0)
+OptStroke.Thickness = 1.5
+OptStroke.Parent = OptionMenu
+
+local EditPosOptBtn = Instance.new("TextButton")
+EditPosOptBtn.Size = UDim2.new(1, 0, 0.33, 0)
+EditPosOptBtn.BackgroundTransparency = 1
+EditPosOptBtn.Text = "⚙️ Sửa Vị Trí"
+EditPosOptBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+EditPosOptBtn.Font = Enum.Font.SourceSansBold
+EditPosOptBtn.TextSize = 13
+EditPosOptBtn.ZIndex = 151
+EditPosOptBtn.Parent = OptionMenu
+
+local RenameOptBtn = Instance.new("TextButton")
+RenameOptBtn.Size = UDim2.new(1, 0, 0.33, 0)
+RenameOptBtn.Position = UDim2.new(0, 0, 0.33, 0)
+RenameOptBtn.BackgroundTransparency = 1
+RenameOptBtn.Text = "✏️ Đổi Tên"
+RenameOptBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RenameOptBtn.Font = Enum.Font.SourceSansBold
+RenameOptBtn.TextSize = 13
+RenameOptBtn.ZIndex = 151
+RenameOptBtn.Parent = OptionMenu
+
+local DeleteOptBtn = Instance.new("TextButton")
+DeleteOptBtn.Size = UDim2.new(1, 0, 0.33, 0)
+DeleteOptBtn.Position = UDim2.new(0, 0, 0.66, 0)
+DeleteOptBtn.BackgroundTransparency = 1
+DeleteOptBtn.Text = "🗑️ Xóa Cam"
+DeleteOptBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+DeleteOptBtn.Font = Enum.Font.SourceSansBold
+DeleteOptBtn.TextSize = 13
+DeleteOptBtn.ZIndex = 151
+DeleteOptBtn.Parent = OptionMenu
+
+-- TẠO MÔ HÌNH CAMERA 3D
+local function CreateBeautifulCameraModel(startCFrame)
+    local model = Instance.new("Model")
+    model.Name = "BeautifulCameraModel"
+
+    local body = Instance.new("Part")
+    body.Name = "Body"
+    body.Size = Vector3.new(0.9, 0.7, 1.2)
+    body.Color = Color3.fromRGB(25, 25, 30)
+    body.Material = Enum.Material.SmoothPlastic
+    body.Anchored = true
+    body.CanCollide = false
+    body.CFrame = startCFrame
+    body.Parent = model
+
+    local rim = Instance.new("Part")
+    rim.Size = Vector3.new(0.92, 0.1, 1.22)
+    rim.Color = Color3.fromRGB(218, 165, 32)
+    rim.Material = Enum.Material.Metal
+    rim.Anchored = true
+    rim.CanCollide = false
+    rim.CFrame = body.CFrame * CFrame.new(0, 0, 0)
+    rim.Parent = model
+
+    local lensOuter = Instance.new("Part")
+    lensOuter.Shape = Enum.PartType.Cylinder
+    lensOuter.Size = Vector3.new(0.8, 0.7, 0.7)
+    lensOuter.Color = Color3.fromRGB(15, 15, 20)
+    lensOuter.Material = Enum.Material.SmoothPlastic
+    lensOuter.Anchored = true
+    lensOuter.CanCollide = false
+    lensOuter.CFrame = body.CFrame * CFrame.new(0, 0, -0.7) * CFrame.Angles(0, 0, math.rad(90))
+    lensOuter.Parent = model
+
+    local lensGlass = Instance.new("Part")
+    lensGlass.Shape = Enum.PartType.Cylinder
+    lensGlass.Size = Vector3.new(0.05, 0.6, 0.6)
+    lensGlass.Color = Color3.fromRGB(0, 190, 255)
+    lensGlass.Material = Enum.Material.Neon
+    lensGlass.Anchored = true
+    lensGlass.CanCollide = false
+    lensGlass.CFrame = body.CFrame * CFrame.new(0, 0, -1.1) * CFrame.Angles(0, 0, math.rad(90))
+    lensGlass.Parent = model
+
+    local led = Instance.new("Part")
+    led.Size = Vector3.new(0.15, 0.15, 0.15)
+    led.Color = Color3.fromRGB(255, 30, 30)
+    led.Material = Enum.Material.Neon
+    led.Anchored = true
+    led.CanCollide = false
+    led.CFrame = body.CFrame * CFrame.new(0.3, 0.25, -0.5)
+    led.Parent = model
+
+    model.PrimaryPart = body
+    model.Parent = Workspace
+    return model, body
+end
+
+-- LOGIC DI CHUYỂN / XOAY BẰNG NÚT
+local holdingAction = nil
+local activeConnection = nil
+
+local function StartHoldAction(actionFunc)
+    holdingAction = actionFunc
+    if activeConnection then activeConnection:Disconnect() end
+    activeConnection = RunService.RenderStepped:Connect(function()
+        if holdingAction and TempCamModel and TempMainPart then
+            holdingAction()
+        end
+    end)
+end
+
+local function StopHoldAction()
+    holdingAction = nil
+    if activeConnection then
+        activeConnection:Disconnect()
+        activeConnection = nil
+    end
+end
+
+local moveSpeed = 0.4
+local rotSpeed = 4.5
+
+local function BindHold(button, actionFunc)
+    button.MouseButton1Down:Connect(function() StartHoldAction(actionFunc) end)
+    button.MouseButton1Up:Connect(StopHoldAction)
+    button.MouseLeave:Connect(StopHoldAction)
+end
+
+BindHold(MoveFwd, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.new(0, 0, -moveSpeed)) end)
+BindHold(MoveBack, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.new(0, 0, moveSpeed)) end)
+BindHold(MoveLeft, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.new(-moveSpeed, 0, 0)) end)
+BindHold(MoveRight, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.new(moveSpeed, 0, 0)) end)
+BindHold(MoveUp, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.new(0, moveSpeed, 0)) end)
+BindHold(MoveDown, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.new(0, -moveSpeed, 0)) end)
+
+BindHold(RotUp, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.Angles(math.rad(rotSpeed), 0, 0)) end)
+BindHold(RotDown, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.Angles(math.rad(-rotSpeed), 0, 0)) end)
+BindHold(RotLeft, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.Angles(0, math.rad(rotSpeed), 0)) end)
+BindHold(RotRight, function() TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.Angles(0, math.rad(-rotSpeed), 0)) end)
+
+ReverseBtn.MouseButton1Click:Connect(function()
+    if TempCamModel and TempMainPart then
+        TempCamModel:SetPrimaryPartCFrame(TempMainPart.CFrame * CFrame.Angles(0, math.rad(180), 0))
+    end
+end)
+
+-- LOGIC "👁️ ĐẶT THEO GÓC NHÌN"
+ViewSnapBtn.MouseButton1Click:Connect(function()
+    if TempCamModel and TempMainPart then
+        local camCFrame = CurrentCamera.CFrame
+        -- Đặt mô hình ngay tại vị trí camera người chơi đang nhìn
+        TempCamModel:SetPrimaryPartCFrame(camCFrame * CFrame.new(0, 0, 1.2))
+    end
+end)
+
+-- LOGIC "⚡ CHỈNH NHANH"
+local isQuickAdjustActive = false
+local clickConnection = nil
+
+QuickAdjustBtn.MouseButton1Click:Connect(function()
+    isQuickAdjustActive = not isQuickAdjustActive
+    if isQuickAdjustActive then
+        QuickAdjustBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+        QuickAdjustBtn.Text = "🟢 Click Để Tele"
+
+        clickConnection = Mouse.Button1Down:Connect(function()
+            if isQuickAdjustActive and TempCamModel and TempMainPart then
+                local hitPos = Mouse.Hit.Position
+                local currentRotation = TempMainPart.CFrame - TempMainPart.CFrame.Position
+                TempCamModel:SetPrimaryPartCFrame(CFrame.new(hitPos + Vector3.new(0, 1.5, 0)) * currentRotation)
+
+                isQuickAdjustActive = false
+                QuickAdjustBtn.BackgroundColor3 = Color3.fromRGB(70, 50, 110)
+                QuickAdjustBtn.Text = "⚡ Chỉnh Nhanh"
+                if clickConnection then clickConnection:Disconnect() clickConnection = nil end
+            end
+        end)
+    else
+        QuickAdjustBtn.BackgroundColor3 = Color3.fromRGB(70, 50, 110)
+        QuickAdjustBtn.Text = "⚡ Chỉnh Nhanh"
+        if clickConnection then clickConnection:Disconnect() clickConnection = nil end
+    end
+end)
+
+-- LOGIC THANH TRƯỢT ZOOM DỌC
+local isDraggingZoom = false
+
+ZoomKnob.MouseButton1Down:Connect(function()
+    isDraggingZoom = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingZoom = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingZoom and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local trackAbsPos = ZoomTrack.AbsolutePosition.Y
+        local trackAbsSize = ZoomTrack.AbsoluteSize.Y
+        local mousePos = input.Position.Y
+
+        local relativeY = math.clamp(mousePos - trackAbsPos, 0, trackAbsSize)
+        local scale = relativeY / trackAbsSize
+
+        ZoomKnob.Position = UDim2.new(0.5, -10, scale, -10)
+
+        local targetFOV = 10 + (scale * 110)
+        CurrentCamera.FieldOfView = targetFOV
+    end
+end)
+
+-- LOGIC HỆ THỐNG SPECTATE PLAYER (TAB 2)
+local isViewingCam = false
+local isDraggingView = false
+local lastInputPos = nil
+local yaw = 0
+local pitch = 0
+
+local function ExitCamView()
+    isViewingCam = false
+    spectateTarget = nil
+    if spectateConnection then
+        spectateConnection:Disconnect()
+        spectateConnection = nil
+    end
+
+    CurrentCamera.CameraType = Enum.CameraType.Custom
+    CurrentCamera.FieldOfView = 70
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        CurrentCamera.CameraSubject = LocalPlayer.Character.Humanoid
+    end
+
+    ZoomSliderFrame.Visible = false
+    CamControlBar.Visible = false
+    QuickExitBtn.Visible = false
+    MainFrame.Visible = true -- Hiện lại GUI chính khi thoát xem
+end
+
+local function SpectatePlayer(targetPlayer)
+    if not targetPlayer or targetPlayer == LocalPlayer then return end
+    spectateTarget = targetPlayer
+
+    if spectateConnection then spectateConnection:Disconnect() spectateConnection = nil end
+
+    isViewingCam = true
+    CamControlBar.Visible = true
+    QuickExitBtn.Visible = true
+    OptionMenu.Visible = false
+    MainFrame.Visible = false -- TỰ ĐỘNG ẨN GUI CHÍNH KHI XEM
+    SpectateNameLabel.Text = "👀 Đang Xem: " .. targetPlayer.DisplayName
+
+    if spectateMode == "Normal" then
+        ZoomSliderFrame.Visible = true
+        spectateConnection = RunService.RenderStepped:Connect(function()
+            if spectateTarget and spectateTarget.Character and spectateTarget.Character:FindFirstChild("Humanoid") then
+                CurrentCamera.CameraType = Enum.CameraType.Custom
+                CurrentCamera.CameraSubject = spectateTarget.Character.Humanoid
+            else
+                ExitCamView()
+            end
+        end)
+    elseif spectateMode == "FirstPerson" then
+        ZoomSliderFrame.Visible = false
+        CurrentCamera.CameraType = Enum.CameraType.Scriptable
+
+        spectateConnection = RunService.RenderStepped:Connect(function()
+            if spectateTarget and spectateTarget.Character and spectateTarget.Character:FindFirstChild("Head") then
+                local head = spectateTarget.Character.Head
+                CurrentCamera.CFrame = head.CFrame * CFrame.new(0, 0, -0.2)
+            else
+                ExitCamView()
+            end
+        end)
+    end
+end
+
+-- LOGIC XOAY 360° MÀN HÌNH BẰNG TAY DÀNH CHO CAM ĐẶT TAB 1
+local function ViewCamAtIndex(index)
+    if #PlacedCameras == 0 then return end
+    
+    if index < 1 then index = #PlacedCameras end
+    if index > #PlacedCameras then index = 1 end
+
+    currentCamIndex = index
+    local data = PlacedCameras[currentCamIndex]
+
+    if data and data.Part and data.Part.Parent then
+        spectateTarget = nil
+        if spectateConnection then spectateConnection:Disconnect() spectateConnection = nil end
+
+        CurrentCamera.CameraType = Enum.CameraType.Scriptable
+        CurrentCamera.CFrame = data.Part.CFrame * CFrame.new(0, 0, -1.2)
+        
+        local rx, ry, rz = CurrentCamera.CFrame:ToOrientation()
+        yaw = math.deg(ry)
+        pitch = math.deg(rx)
+
+        isViewingCam = true
+        ZoomSliderFrame.Visible = true
+        CamControlBar.Visible = true
+        QuickExitBtn.Visible = true
+        OptionMenu.Visible = false
+        MainFrame.Visible = false -- TỰ ĐỘNG ẨN GUI CHÍNH KHI XEM
+        SpectateNameLabel.Text = "📷 " .. data.Name
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if isViewingCam and not gameProcessed then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDraggingView = true
+            lastInputPos = input.Position
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingView = false
+        lastInputPos = nil
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isViewingCam and isDraggingView and lastInputPos and CurrentCamera.CameraType == Enum.CameraType.Scriptable and not spectateTarget then
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - lastInputPos
+            lastInputPos = input.Position
+
+            yaw = yaw - delta.X * 0.3
+            pitch = math.clamp(pitch - delta.Y * 0.3, -80, 80)
+
+            local currentPos = CurrentCamera.CFrame.Position
+            CurrentCamera.CFrame = CFrame.new(currentPos) * CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
+        end
+    end
+end)
+
+-- 🔄 TỰ ĐỘNG LẶP VÒNG KHI BẤM NÚT QUA LẠI (< / >)
+PrevCamBtn.MouseButton1Click:Connect(function()
+    if spectateTarget then
+        local pList = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(pList, p) end
+        end
+        if #pList == 0 then return end
+        
+        local currentIdx = table.find(pList, spectateTarget) or 1
+        local newIdx = currentIdx - 1
+        if newIdx < 1 then newIdx = #pList end
+        SpectatePlayer(pList[newIdx])
+    else
+        ViewCamAtIndex(currentCamIndex - 1)
+    end
+end)
+
+NextCamBtn.MouseButton1Click:Connect(function()
+    if spectateTarget then
+        local pList = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then table.insert(pList, p) end
+        end
+        if #pList == 0 then return end
+        
+        local currentIdx = table.find(pList, spectateTarget) or 1
+        local newIdx = currentIdx + 1
+        if newIdx > #pList then newIdx = 1 end
+        SpectatePlayer(pList[newIdx])
+    else
+        ViewCamAtIndex(currentCamIndex + 1)
+    end
+end)
+
+-- AUTOMATIC PLAYER LIST UPDATE (1s/lần)
+local function UpdatePlayerList()
+    for _, child in pairs(PlayerListScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local PItemFrame = Instance.new("Frame")
+            PItemFrame.Size = UDim2.new(1, 0, 0, 32)
+            PItemFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+            PItemFrame.ZIndex = 103
+            PItemFrame.Parent = PlayerListScroll
+
+            local PCorner = Instance.new("UICorner")
+            PCorner.CornerRadius = UDim.new(0, 5)
+            PCorner.Parent = PItemFrame
+
+            local PBtn = Instance.new("TextButton")
+            PBtn.Size = UDim2.new(1, 0, 1, 0)
+            PBtn.BackgroundTransparency = 1
+            PBtn.Text = "👤 " .. p.DisplayName .. " (@" .. p.Name .. ")"
+            PBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            PBtn.Font = Enum.Font.SourceSansBold
+            PBtn.TextSize = 13
+            PBtn.TextXAlignment = Enum.TextXAlignment.Left
+            PBtn.Position = UDim2.new(0, 8, 0, 0)
+            PBtn.ZIndex = 104
+            PBtn.Parent = PItemFrame
+
+            PBtn.MouseButton1Click:Connect(function()
+                SpectatePlayer(p)
+            end)
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if ScreenGui and ScreenGui.Parent then
+            UpdatePlayerList()
+        end
+    end
+end)
+
+-- TẠO VÀ ĐẶT CAMERA (TAB 1)
+PlaceCamBtn.MouseButton1Click:Connect(function()
+    if TempCamModel then return end
+    editingCamIndex = nil
+
+    local char = LocalPlayer.Character
+    local spawnCFrame
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        spawnCFrame = char.HumanoidRootPart.CFrame * CFrame.new(0, 2, -4)
+    else
+        spawnCFrame = CurrentCamera.CFrame * CFrame.new(0, 0, -4)
+    end
+
+    local model, body = CreateBeautifulCameraModel(spawnCFrame)
+    TempCamModel = model
+    TempMainPart = body
+
+    AdjustGUI.Visible = true
+    MainFrame.Visible = false
+end)
+
+CancelBtn.MouseButton1Click:Connect(function()
+    StopHoldAction()
+    if isQuickAdjustActive then
+        isQuickAdjustActive = false
+        QuickAdjustBtn.BackgroundColor3 = Color3.fromRGB(70, 50, 110)
+        QuickAdjustBtn.Text = "⚡ Chỉnh Nhanh"
+        if clickConnection then clickConnection:Disconnect() clickConnection = nil end
+    end
+    if TempCamModel and not editingCamIndex then 
+        TempCamModel:Destroy() 
+    end
+    TempCamModel = nil 
+    TempMainPart = nil
+    editingCamIndex = nil
+    AdjustGUI.Visible = false
+    MainFrame.Visible = true
+end)
+
+ConfirmBtn.MouseButton1Click:Connect(function()
+    StopHoldAction()
+    if isQuickAdjustActive then
+        isQuickAdjustActive = false
+        QuickAdjustBtn.BackgroundColor3 = Color3.fromRGB(70, 50, 110)
+        QuickAdjustBtn.Text = "⚡ Chỉnh Nhanh"
+        if clickConnection then clickConnection:Disconnect() clickConnection = nil end
+    end
+    if not TempCamModel then return end
+
+    -- Nếu là đang chỉnh sửa vị trí cam cũ thì không hiện bảng đặt tên nữa
+    if editingCamIndex then
+        AdjustGUI.Visible = false
+        MainFrame.Visible = true
+        TempCamModel = nil
+        TempMainPart = nil
+        editingCamIndex = nil
+    else
+        AdjustGUI.Visible = false
+        RoyalFrame.Visible = true
+    end
+end)
+
+local selectedCamData = nil
+
+local function RefreshCamList()
+    for _, child in pairs(CamListScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    for index, data in ipairs(PlacedCameras) do
+        local ItemFrame = Instance.new("Frame")
+        ItemFrame.Size = UDim2.new(1, 0, 0, 32)
+        ItemFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+        ItemFrame.ZIndex = 103
+        ItemFrame.Parent = CamListScroll
+
+        local ItemCorner = Instance.new("UICorner")
+        ItemCorner.CornerRadius = UDim.new(0, 5)
+        ItemCorner.Parent = ItemFrame
+
+        local ViewBtn = Instance.new("TextButton")
+        ViewBtn.Size = UDim2.new(0.8, 0, 1, 0)
+        ViewBtn.BackgroundTransparency = 1
+        ViewBtn.Text = "📷 " .. data.Name
+        ViewBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+        ViewBtn.Font = Enum.Font.SourceSansBold
+        ViewBtn.TextSize = 14
+        ViewBtn.TextXAlignment = Enum.TextXAlignment.Left
+        ViewBtn.Position = UDim2.new(0, 8, 0, 0)
+        ViewBtn.ZIndex = 104
+        ViewBtn.Parent = ItemFrame
+
+        local ThreeDotsBtn = Instance.new("TextButton")
+        ThreeDotsBtn.Size = UDim2.new(0, 25, 1, 0)
+        ThreeDotsBtn.Position = UDim2.new(1, -28, 0, 0)
+        ThreeDotsBtn.BackgroundTransparency = 1
+        ThreeDotsBtn.Text = "⋮"
+        ThreeDotsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ThreeDotsBtn.Font = Enum.Font.SourceSansBold
+        ThreeDotsBtn.TextSize = 18
+        ThreeDotsBtn.ZIndex = 104
+        ThreeDotsBtn.Parent = ItemFrame
+
+        ViewBtn.MouseButton1Click:Connect(function()
+            ViewCamAtIndex(index)
+        end)
+
+        ThreeDotsBtn.MouseButton1Click:Connect(function()
+            selectedCamData = {Data = data, Index = index, Label = ViewBtn}
+            OptionMenu.Position = UDim2.new(0, ThreeDotsBtn.AbsolutePosition.X - 100, 0, ThreeDotsBtn.AbsolutePosition.Y + 25)
+            OptionMenu.Visible = not OptionMenu.Visible
+        end)
+    end
+end
+
+-- LOGIC "⚙️ SỬA VỊ TRÍ" TRONG 3 CHẤM
+EditPosOptBtn.MouseButton1Click:Connect(function()
+    if selectedCamData then
+        OptionMenu.Visible = false
+        editingCamIndex = selectedCamData.Index
+        TempCamModel = selectedCamData.Data.Model
+        TempMainPart = selectedCamData.Data.Part
+
+        AdjustGUI.Visible = true
+        MainFrame.Visible = false
+    end
+end)
+
+SaveCamBtn.MouseButton1Click:Connect(function()
+    local camName = NameInput.Text
+    if camName == "" then camName = "Cam " .. tostring(#PlacedCameras + 1) end
+
+    TempCamModel.Name = camName
+    local CamBodyRef = TempMainPart
+
+    table.insert(PlacedCameras, {Name = camName, Model = TempCamModel, Part = CamBodyRef})
+
+    TempCamModel = nil
+    TempMainPart = nil
+    NameInput.Text = ""
+    RoyalFrame.Visible = false
+    MainFrame.Visible = true
+
+    RefreshCamList()
+end)
+
+DeleteOptBtn.MouseButton1Click:Connect(function()
+    if selectedCamData then
+        if selectedCamData.Data.Model then
+            selectedCamData.Data.Model:Destroy()
+        end
+        table.remove(PlacedCameras, selectedCamData.Index)
+        selectedCamData = nil
+        OptionMenu.Visible = false
+        RefreshCamList()
+    end
+end)
+
+RenameOptBtn.MouseButton1Click:Connect(function()
+    if selectedCamData then
+        OptionMenu.Visible = false
+        NameInput.Text = selectedCamData.Data.Name
+        RoyalFrame.Visible = true
+    end
+end)
+
+ResetCamBtn.MouseButton1Click:Connect(ExitCamView)
+QuickExitBtn.MouseButton1Click:Connect(ExitCamView)
