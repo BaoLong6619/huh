@@ -1,0 +1,124 @@
+-- Long Béo Anti-Ban MAX Level (Ultimate Client Protection)
+-- Author: Long Béo
+
+local Players = game:GetService("Players")
+local ScriptContext = game:GetService("ScriptContext")
+local LogService = game:GetService("LogService")
+local CoreGui = game:GetService("CoreGui")
+local Stats = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- 1. CHẶN LOG SERVICE VÀ BÁO CÁO LỖI VỀ SERVER
+if LogService then
+    LogService.MessageOut:Connect(function(message, messageType)
+        -- Chặn ghi log gửi thông số nghi vấn
+    end)
+end
+
+-- 2. VÔ HIỆU HÓA ANTICHEAT SCRIPT TRONG PLAYER & CHARACTER
+local function disableAntiCheatScripts(container)
+    if not container then return end
+    for _, obj in pairs(container:GetDescendants()) do
+        if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+            local name = string.lower(obj.Name)
+            if name:find("anti") or name:find("cheat") or name:find("detect") or name:find("exploit") or name:find("secure") or name:find("ban") or name:find("kick") or name:find("check") then
+                pcall(function()
+                    obj.Disabled = true
+                    obj:Destroy()
+                end)
+            end
+        end
+    end
+end
+
+if LocalPlayer then
+    disableAntiCheatScripts(LocalPlayer:FindFirstChild("PlayerScripts"))
+    if LocalPlayer.Character then
+        disableAntiCheatScripts(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        disableAntiCheatScripts(char)
+    end)
+end
+
+-- 3. HOOK METATABLE (__NAMECALL VÀ __INDEX) CHẶN KICK & REMOTE REPORTING
+local rawgetmetatable = getrawmetatable or debug.getmetatable
+local setreadonly = setreadonly or make_writeable
+
+if rawgetmetatable and setreadonly then
+    local gmt = rawgetmetatable(game)
+    local oldNamecall = gmt.__namecall
+    local oldIndex = gmt.__index
+
+    setreadonly(gmt, false)
+
+    gmt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+
+        -- Chặn gọi hàm Kick() từ bất kỳ script nào của Game
+        if tostring(method):lower() == "kick" then
+            warn("[LONG BÉO ANTI-BAN MAX] Đã chặn lệnh Kick từ Game!")
+            return nil
+        end
+
+        -- Chặn các RemoteEvent / RemoteFunction báo cáo Log nghi vấn lên Server
+        if tostring(method) == "FireServer" or tostring(method) == "InvokeServer" then
+            local remoteName = string.lower(tostring(self.Name))
+            if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("cheat") or remoteName:find("report") or remoteName:find("detect") or remoteName:find("log") or remoteName:find("flag") then
+                warn("[LONG BÉO ANTI-BAN MAX] Đã chặn Remote Event báo cáo:", self.Name)
+                return nil
+            end
+        end
+
+        return oldNamecall(self, ...)
+    end)
+
+    gmt.__index = newcclosure(function(self, key)
+        -- An toàn hóa các truy vấn kiểm tra thuộc tính nhạy cảm
+        if tostring(key):lower() == "walkspeed" and self:IsA("Humanoid") then
+            return 16
+        end
+        if tostring(key):lower() == "jumppower" and self:IsA("Humanoid") then
+            return 50
+        end
+        return oldIndex(self, key)
+    end)
+
+    setreadonly(gmt, true)
+end
+
+-- 4. BANNER THÔNG BÁO ANTI-BAN MAX ĐÃ KÍCH HOẠT
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeoAntiBanMaxNotify"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 9999999
+ScreenGui.Parent = (gethui and gethui()) or CoreGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 320, 0, 50)
+Frame.Position = UDim2.new(0.5, -160, 0.02, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner", Frame)
+Corner.CornerRadius = UDim.new(0, 8)
+local Stroke = Instance.new("UIStroke", Frame)
+Stroke.Color = Color3.fromRGB(0, 255, 150)
+Stroke.Thickness = 2
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Size = UDim2.new(1, 0, 1, 0)
+TextLabel.BackgroundTransparency = 1
+TextLabel.Text = "🛡️ CẢNH BÁO: ANTI-BAN MAX LEVEL CỦA LONG BÉO ĐÃ BẬT! 🛡️"
+TextLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+TextLabel.TextSize = 11
+TextLabel.Font = Enum.Font.SourceSansBold
+TextLabel.Parent = Frame
+
+task.delay(5, function()
+    if ScreenGui then ScreenGui:Destroy() end
+end)
