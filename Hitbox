@@ -1,7 +1,182 @@
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Thông chạy",                   -- Tiêu đề chính của bảng thông báo
-    Text = "đã khoá script!",    -- Nội dung văn bản hiển thị phía dưới
-    Duration = 5                           -- Số giây thông báo hiển thị (5 giây)
-})
+--// HITBOX GUI V2 (RESTORE ORIGINAL SIZE) //--
+--// By chị 😏
 
----
+_G.HeadSize = 50
+_G.Disabled = false
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local LP = Players.LocalPlayer
+
+--------------------------------------------------
+-- LƯU SIZE GỐC
+--------------------------------------------------
+local OriginalSize = {}
+
+--------------------------------------------------
+-- HITBOX LOOP (NO LIMIT)
+--------------------------------------------------
+RunService.RenderStepped:Connect(function()
+	if _G.Disabled then return end
+
+	for _, v in ipairs(Players:GetPlayers()) do
+		if v ~= LP and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+			pcall(function()
+				local hrp = v.Character.HumanoidRootPart
+
+				-- lưu size gốc 1 lần
+				if not OriginalSize[v] then
+					OriginalSize[v] = hrp.Size
+				end
+
+				local s = _G.HeadSize
+				hrp.Size = Vector3.new(s, s, s)
+				hrp.Transparency = 0.7
+				hrp.BrickColor = BrickColor.new("Really blue")
+				hrp.Material = Enum.Material.Neon
+				hrp.CanCollide = false
+			end)
+		end
+	end
+end)
+
+--------------------------------------------------
+-- GUI
+--------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "--hitbox gui v2"
+gui.ResetOnSpawn = false
+gui.Parent = LP:WaitForChild("PlayerGui")
+
+--------------------------------------------------
+-- DRAG FUNCTION
+--------------------------------------------------
+local function makeDraggable(frame)
+	frame.Active = true
+
+	local dragging = false
+	local dragStart
+	local startPos
+
+	frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = frame.Position
+		end
+	end)
+
+	frame.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+
+	UIS.InputChanged:Connect(function(input)
+		if dragging and (
+			input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch
+		) then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+--------------------------------------------------
+-- MAIN GUI
+--------------------------------------------------
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0, 200, 0, 120)
+main.Position = UDim2.new(0.4, 0, 0.3, 0)
+main.BackgroundColor3 = Color3.fromRGB(30,30,30)
+main.BorderSizePixel = 2
+main.BorderColor3 = Color3.fromRGB(0,170,255)
+makeDraggable(main)
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1,0,0,25)
+title.BackgroundTransparency = 1
+title.Text = "HITBOX GUI V2"
+title.TextColor3 = Color3.fromRGB(0,170,255)
+title.TextScaled = true
+
+--------------------------------------------------
+-- TEXTBOX (BẤM LÀ XOÁ)
+--------------------------------------------------
+local box = Instance.new("TextBox", main)
+box.Size = UDim2.new(1,-20,0,30)
+box.Position = UDim2.new(0,10,0,35)
+box.Text = tostring(_G.HeadSize)
+box.PlaceholderText = "HeadSize (NO LIMIT)"
+box.TextScaled = true
+box.BackgroundColor3 = Color3.fromRGB(50,50,50)
+box.TextColor3 = Color3.new(1,1,1)
+box.ClearTextOnFocus = true
+
+box.FocusLost:Connect(function()
+	local n = tonumber(box.Text)
+	if n then
+		_G.HeadSize = n
+	else
+		box.Text = tostring(_G.HeadSize)
+	end
+end)
+
+--------------------------------------------------
+-- TOGGLE ON / OFF
+--------------------------------------------------
+local toggle = Instance.new("TextButton", main)
+toggle.Size = UDim2.new(1,-20,0,30)
+toggle.Position = UDim2.new(0,10,0,75)
+toggle.Text = "HITBOX: ON"
+toggle.TextScaled = true
+toggle.BackgroundColor3 = Color3.fromRGB(0,170,255)
+toggle.TextColor3 = Color3.new(1,1,1)
+
+toggle.MouseButton1Click:Connect(function()
+	_G.Disabled = not _G.Disabled
+
+	toggle.Text = _G.Disabled and "HITBOX: OFF" or "HITBOX: ON"
+	toggle.BackgroundColor3 = _G.Disabled
+		and Color3.fromRGB(170,50,50)
+		or Color3.fromRGB(0,170,255)
+
+	-- trả về size gốc
+	if _G.Disabled then
+		for v, size in pairs(OriginalSize) do
+			if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+				local hrp = v.Character.HumanoidRootPart
+				hrp.Size = size
+				hrp.Transparency = 0
+				hrp.Material = Enum.Material.Plastic
+				hrp.BrickColor = BrickColor.new("Medium stone grey")
+				hrp.CanCollide = true
+			end
+		end
+	end
+end)
+
+--------------------------------------------------
+-- MINI GUI
+--------------------------------------------------
+local mini = Instance.new("TextButton", gui)
+mini.Size = UDim2.new(0, 60, 0, 25)
+mini.Position = UDim2.new(0.1, 0, 0.3, 0)
+mini.Text = "GUI"
+mini.TextScaled = true
+mini.BackgroundColor3 = Color3.fromRGB(0,170,255)
+mini.TextColor3 = Color3.new(1,1,1)
+makeDraggable(mini)
+
+mini.MouseButton1Click:Connect(function()
+	main.Visible = not main.Visible
+end)
