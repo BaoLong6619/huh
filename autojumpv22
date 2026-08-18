@@ -1,0 +1,64 @@
+-- 📜 NỘI DUNG CHI TIẾT ĐẦY ĐỦ: SCRIPT TỐC ĐỘ SIÊU CAO (LẮNG NGHE TỪ HỆ THỐNG VẬT LÝ STEPPED) ⚡
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    hrp = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+end)
+
+local connection = nil
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function startUltraFastSweep()
+    if connection then connection:Disconnect() end
+    
+    -- 🚀 Chuyển sang Stepped: Chạy ngay TRƯỚC KHI hệ thống vật lý tính toán
+    connection = RunService.Stepped:Connect(function()
+        if not character or not hrp or not humanoid or humanoid.Health <= 0 then return end
+        
+        rayParams.FilterDescendantsInstances = {character}
+        
+        -- 📏 Mở rộng độ dài quét nhẹ (3.4 studs) để bắt điểm chạm đất sớm nhất
+        local result = workspace:Raycast(hrp.Position, Vector3.new(0, -3.4, 0), rayParams)
+
+        if result then
+            local jumpForce = humanoid.UseJumpPower and humanoid.JumpPower or math.sqrt(2 * workspace.Gravity * humanoid.JumpHeight)
+            
+            -- ⚡ Can thiệp trực tiếp vào Vector Vận Tốc ngay tại chu kỳ Physics
+            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, jumpForce, hrp.AssemblyLinearVelocity.Z)
+        end
+    end)
+end
+
+local function stopUltraFastSweep()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+end
+
+-- ⌨️ Bắt sự kiện NHẤN Space (Giữ Space để BẬT)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Space then
+        startUltraFastSweep()
+    end
+end)
+
+-- ⌨️ Bắt sự kiện THẢ Space (Thả Space là TẮT)
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.Space then
+        stopUltraFastSweep()
+    end
+end)
