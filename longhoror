@@ -1,0 +1,311 @@
+--[[
+    Script: Long Béo - Horror God Mode (NHẸ HƠN - KHÔNG ĐỤNG ĐỒ HỌA)
+    Giữ nguyên: Fullbright, Instant Prompt, Chams, Hiệu ứng nút
+    Tối ưu: Code gọn, ít tốn tài nguyên
+]]
+
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local ProximityService = game:GetService("ProximityPromptService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "long béo"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+
+-- ==================== NÚT LẺ ====================
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "long béo"
+ToggleButton.Parent = ScreenGui
+ToggleButton.Size = UDim2.new(0, 110, 0, 40)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.1, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+ToggleButton.Text = "LONG BÉO"
+ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 127)
+ToggleButton.Font = Enum.Font.GothamBlack
+ToggleButton.TextSize = 14
+ToggleButton.AutoButtonColor = false
+ToggleButton.Draggable = true
+ToggleButton.Active = true
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 10)
+ToggleCorner.Parent = ToggleButton
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(0, 255, 127)
+ToggleStroke.Thickness = 2
+ToggleStroke.Parent = ToggleButton
+
+-- ==================== KHUNG CHÍNH ====================
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "long béo"
+MainFrame.Parent = ScreenGui
+MainFrame.Size = UDim2.new(0, 350, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.Visible = false
+MainFrame.Draggable = true
+MainFrame.Active = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(0, 255, 150)
+MainStroke.Thickness = 2.5
+MainStroke.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.BackgroundTransparency = 1
+Title.Text = "★ LONG BÉO HORROR ★"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 20
+Title.Parent = MainFrame
+
+local Container = Instance.new("ScrollingFrame")
+Container.Size = UDim2.new(1, -30, 1, -80)
+Container.Position = UDim2.new(0, 15, 0, 65)
+Container.BackgroundTransparency = 1
+Container.ScrollBarThickness = 0
+Container.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = Container
+Layout.Padding = UDim.new(0, 15)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- ==================== FULLBRIGHT ====================
+local function ToggleFB(s)
+    if s then
+        Lighting.Brightness = 2.5
+        Lighting.ClockTime = 14
+        Lighting.Ambient = Color3.new(1,1,1)
+    else
+        Lighting.Brightness = 1
+        Lighting.Ambient = Color3.new(0,0,0)
+    end
+end
+
+-- ==================== INSTANT PROMPT ====================
+local InstantConn
+local function ToggleInstant(s)
+    if s then
+        InstantConn = ProximityService.PromptButtonHoldBegan:Connect(function(p) 
+            fireproximityprompt(p) 
+        end)
+    else
+        if InstantConn then InstantConn:Disconnect() end
+    end
+end
+
+-- ==================== CHAMS TỐI ƯU ====================
+local ChamsActive = false
+local ChamsList = {}
+local Connections = {}
+
+local COLOR_PLAYER = Color3.fromRGB(0, 255, 0)
+local COLOR_MONSTER = Color3.fromRGB(255, 0, 0)
+local COLOR_WHITE = Color3.fromRGB(255, 255, 255)
+
+-- 1 Highlight cho cả model (nhẹ hơn nhiều so với từng part)
+local function AddChams(model)
+    if ChamsList[model] then return end
+    ChamsList[model] = true
+    
+    local isPlayer = Players:GetPlayerFromCharacter(model)
+    local color = isPlayer and COLOR_PLAYER or COLOR_MONSTER
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "LB_Chams"
+    highlight.FillColor = color
+    highlight.FillTransparency = 0.4
+    highlight.OutlineColor = COLOR_WHITE
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = model
+end
+
+local function RemoveChams(model)
+    ChamsList[model] = nil
+    local highlight = model:FindFirstChild("LB_Chams")
+    if highlight then highlight:Destroy() end
+end
+
+local function ClearAllChams()
+    for model, _ in pairs(ChamsList) do
+        local highlight = model:FindFirstChild("LB_Chams")
+        if highlight then highlight:Destroy() end
+    end
+    ChamsList = {}
+end
+
+local function IsValidTarget(model)
+    if not model:IsA("Model") then return false end
+    if model == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return true end
+    if model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+        return true
+    end
+    return false
+end
+
+local function WatchPlayers()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            AddChams(player.Character)
+        end
+    end
+    
+    local conn1 = Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function(char)
+            task.wait(0.3)
+            if ChamsActive then AddChams(char) end
+        end)
+    end)
+    table.insert(Connections, conn1)
+    
+    local conn2 = Players.PlayerRemoving:Connect(function(player)
+        if player.Character then RemoveChams(player.Character) end
+    end)
+    table.insert(Connections, conn2)
+end
+
+local function WatchMonsters()
+    for _, model in pairs(Workspace:GetDescendants()) do
+        if IsValidTarget(model) then
+            AddChams(model)
+        end
+    end
+    
+    local conn = Workspace.DescendantAdded:Connect(function(descendant)
+        if ChamsActive and descendant:IsA("Model") then
+            task.delay(0.2, function()
+                if descendant.Parent and IsValidTarget(descendant) then
+                    AddChams(descendant)
+                end
+            end)
+        end
+    end)
+    table.insert(Connections, conn)
+end
+
+local function ToggleChams(state)
+    ChamsActive = state
+    if state then
+        for _, conn in pairs(Connections) do conn:Disconnect() end
+        Connections = {}
+        WatchPlayers()
+        WatchMonsters()
+    else
+        for _, conn in pairs(Connections) do conn:Disconnect() end
+        Connections = {}
+        ClearAllChams()
+    end
+end
+
+-- ==================== TOGGLE CÓ HIỆU ỨNG ====================
+local function AddToggle(text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 300, 0, 50)
+    Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Btn.Text = text
+    Btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 14
+    Btn.AutoButtonColor = false
+    Btn.Parent = Container
+
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 12)
+    BtnCorner.Parent = Btn
+
+    local BtnStroke = Instance.new("UIStroke")
+    BtnStroke.Color = Color3.fromRGB(60, 60, 60)
+    BtnStroke.Thickness = 1.5
+    BtnStroke.Parent = Btn
+    
+    local state = false
+    local isHovering = false
+    
+    local function UpdateAppearance()
+        if state then
+            if isHovering then
+                TweenService:Create(Btn, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Color3.fromRGB(20, 50, 35),
+                    TextColor3 = Color3.fromRGB(255, 255, 255)
+                }):Play()
+                TweenService:Create(BtnStroke, TweenInfo.new(0.2), {
+                    Color = Color3.fromRGB(0, 255, 200),
+                    Thickness = 3
+                }):Play()
+            else
+                TweenService:Create(Btn, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+                    TextColor3 = Color3.fromRGB(0, 255, 127)
+                }):Play()
+                TweenService:Create(BtnStroke, TweenInfo.new(0.2), {
+                    Color = Color3.fromRGB(0, 255, 127),
+                    Thickness = 2.5
+                }):Play()
+            end
+        else
+            if isHovering then
+                TweenService:Create(Btn, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+                    TextColor3 = Color3.fromRGB(255, 255, 255)
+                }):Play()
+                TweenService:Create(BtnStroke, TweenInfo.new(0.2), {
+                    Color = Color3.fromRGB(180, 180, 180),
+                    Thickness = 2
+                }):Play()
+            else
+                TweenService:Create(Btn, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Color3.fromRGB(30, 30, 30),
+                    TextColor3 = Color3.fromRGB(150, 150, 150)
+                }):Play()
+                TweenService:Create(BtnStroke, TweenInfo.new(0.2), {
+                    Color = Color3.fromRGB(60, 60, 60),
+                    Thickness = 1.5
+                }):Play()
+            end
+        end
+    end
+    
+    Btn.MouseEnter:Connect(function()
+        isHovering = true
+        UpdateAppearance()
+    end)
+    
+    Btn.MouseLeave:Connect(function()
+        isHovering = false
+        UpdateAppearance()
+    end)
+    
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        callback(state)
+        UpdateAppearance()
+    end)
+end
+
+AddToggle("⚡ FULLBRIGHT (NHÌN ĐÊM)", ToggleFB)
+AddToggle("⏱️ INSTANT PROMPT (KO DELAY)", ToggleInstant)
+AddToggle("👁️ CHAMS MỊN (KO GIẬT)", ToggleChams)
+
+-- ==================== NÚT ĐÓNG MỞ ====================
+ToggleButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    local targetPos = MainFrame.Visible and UDim2.new(0.5, -175, 0.5, -225) or UDim2.new(0.5, -175, 1, 50)
+    TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Position = targetPos}):Play()
+end)
+
+print("Long Béo - Nhẹ hơn, giữ nguyên chức năng!")
