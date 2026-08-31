@@ -3,6 +3,7 @@ game:GetService("StarterGui"):SetCore("SendNotification", {
 	Text = "hack đã bị khóa";
 	Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150"})
 Duration = 5;
+
 --[[
 local main = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
