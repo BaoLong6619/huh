@@ -1,8 +1,7 @@
---
-game:GetService("StarterGui"):SetCore("SendNotification", { 
-	Title = "Bị đã khóa hack",
-	Text = "Bị đã khóa hack",
-	Icon = "rbxassetid://6023426915"
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Bị đã khóa hack",
+    Text = "Bị đã khóa hack",
+    Icon = "rbxassetid://6023426915"
 })
 
 --[[
