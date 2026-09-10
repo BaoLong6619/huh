@@ -1,0 +1,210 @@
+-- 📜 NỘI DUNG CHI TIẾT ĐẦY ĐỦ: SCRIPT TỐC ĐỘ SIÊU CAO (LẮNG NGHE TỪ HỆ THỐNG VẬT LÝ STEPPED) ⚡
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    hrp = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+end)
+
+local connection = nil
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function startUltraFastSweep()
+    if connection then connection:Disconnect() end
+    
+    -- 🚀 Chuyển sang Stepped: Chạy ngay TRƯỚC KHI hệ thống vật lý tính toán
+    connection = RunService.Stepped:Connect(function()
+        if not character or not hrp or not humanoid or humanoid.Health <= 0 then return end
+        
+        rayParams.FilterDescendantsInstances = {character}
+        
+        -- 📏 Mở rộng độ dài quét nhẹ (3.4 studs) để bắt điểm chạm đất sớm nhất
+        local result = workspace:Raycast(hrp.Position, Vector3.new(0, -3.4, 0), rayParams)
+
+        if result then
+            local jumpForce = humanoid.UseJumpPower and humanoid.JumpPower or math.sqrt(2 * workspace.Gravity * humanoid.JumpHeight)
+            
+            -- ⚡ Can thiệp trực tiếp vào Vector Vận Tốc ngay tại chu kỳ Physics
+            hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, jumpForce, hrp.AssemblyLinearVelocity.Z)
+        end
+    end)
+end
+
+local function stopUltraFastSweep()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+end
+
+-- ⌨️ Bắt sự kiện NHẤN Space (Giữ Space để BẬT)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Space then
+        startUltraFastSweep()
+    end
+end)
+
+-- ⌨️ Bắt sự kiện THẢ Space (Thả Space là TẮT)
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.Space then
+        stopUltraFastSweep()
+    end
+end)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Long Béo GUI
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+local function setupGui(char)
+    local humanoidRootPart = char:WaitForChild("HumanoidRootPart")
+    
+    local existingGui = player.PlayerGui:FindFirstChild("LongBéo_GUI")
+    if existingGui then
+        existingGui:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "LongBéo_GUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "LongBéo_Main"
+    mainFrame.Size = UDim2.new(0, 220, 0, 160)
+    mainFrame.Position = UDim2.new(0.5, -110, 0.5, -80)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Visible = false
+    mainFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = mainFrame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, 0, 0, 30)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Long Béo Menu"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 16
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.Parent = mainFrame
+
+    local labelForce = Instance.new("TextLabel")
+    labelForce.Size = UDim2.new(1, -20, 0, 20)
+    labelForce.Position = UDim2.new(0, 10, 0, 40)
+    labelForce.BackgroundTransparency = 1
+    labelForce.Text = "Nhập lực đẩy (Gốc 15):"
+    labelForce.TextColor3 = Color3.fromRGB(200, 200, 200)
+    labelForce.TextSize = 14
+    labelForce.Font = Enum.Font.SourceSans
+    labelForce.TextXAlignment = Enum.TextXAlignment.Left
+    labelForce.Parent = mainFrame
+
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(1, -20, 0, 30)
+    textBox.Position = UDim2.new(0, 10, 0, 65)
+    textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textBox.TextSize = 14
+    textBox.Font = Enum.Font.SourceSans
+    textBox.Text = "15"
+    textBox.Parent = mainFrame
+
+    local tbCorner = Instance.new("UICorner")
+    tbCorner.CornerRadius = UDim.new(0, 6)
+    tbCorner.Parent = textBox
+
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, -20, 0, 30)
+    statusLabel.Position = UDim2.new(0, 10, 0, 110)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Trạng thái: Bật [Y]"
+    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    statusLabel.TextSize = 14
+    statusLabel.Font = Enum.Font.SourceSansBold
+    statusLabel.Parent = mainFrame
+
+    local enabled = true
+    local waitingForTouch = false
+    local waitingThread = nil
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if input.KeyCode == Enum.KeyCode.T then
+            mainFrame.Visible = not mainFrame.Visible
+        elseif input.KeyCode == Enum.KeyCode.Y then
+            enabled = not enabled
+            statusLabel.Text = enabled and "Trạng thái: Bật [Y]" or "Trạng thái: Tắt [Y]"
+            statusLabel.TextColor3 = enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        elseif input.UserInputType == Enum.UserInputType.MouseButton2 and enabled then
+            if waitingForTouch then
+                -- Hủy chờ
+                if waitingThread then
+                    task.cancel(waitingThread)
+                    waitingThread = nil
+                end
+                waitingForTouch = false
+            else
+                waitingForTouch = true
+                waitingThread = task.spawn(function()
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    while waitingForTouch and char and humanoid do
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                        rayParams.FilterDescendantsInstances = {char}
+                        
+                        local raycastResult = workspace:Raycast(humanoidRootPart.Position, Vector3.new(0, -4, 0), rayParams)
+                        
+                        if raycastResult and raycastResult.Instance then
+                            local forceVal = tonumber(textBox.Text) or 15
+                            humanoidRootPart.Velocity = Vector3.new(humanoidRootPart.Velocity.X, 0, humanoidRootPart.Velocity.Z)
+                            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(humanoidRootPart.AssemblyLinearVelocity.X, forceVal * 5, humanoidRootPart.AssemblyLinearVelocity.Z)
+                            waitingForTouch = false
+                            waitingThread = nil
+                            break
+                        end
+                        RunService.RenderStepped:Wait()
+                    end
+                    waitingForTouch = false
+                    waitingThread = nil
+                end)
+            end
+        end
+    end)
+end
+
+if player.Character then
+    setupGui(player.Character)
+end
+player.CharacterAdded:Connect(setupGui)
