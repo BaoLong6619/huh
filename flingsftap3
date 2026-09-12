@@ -2001,65 +2001,57 @@ TargetGroup:CreateToggle({
 })
 
 -- ============================================================
--- LONG Test Bomba (Single Target) - giống hệt Mass Kick nhưng 1 người
+-- 🌑 HỐ ĐEN (BLACK HOLE) - TARGET
 -- ============================================================
 do
-    local function snapBlobTo(blob, targetCFrame)
-        local hrp = blob:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        hrp.CFrame = targetCFrame
-        local att0 = hrp:FindFirstChild("BlobAttachment") or Instance.new("Attachment", hrp)
-        att0.Name = "BlobAttachment"
-        local targetPart = workspace:FindFirstChild("BlobTarget") or Instance.new("Part")
-        targetPart.Anchored = true
-        targetPart.CanCollide = false
-        targetPart.Size = Vector3.new(1,1,1)
-        targetPart.Transparency = 1
-        targetPart.CFrame = targetCFrame
-        targetPart.Name = "BlobTarget"
-        targetPart.Parent = workspace
-        local att1 = targetPart:FindFirstChild("BlobTargetAttachment") or Instance.new("Attachment", targetPart)
-        att1.Name = "BlobTargetAttachment"
-        local ap = hrp:FindFirstChild("BlobAlignPos") or Instance.new("AlignPosition", hrp)
-        ap.Name = "BlobAlignPos"
-        ap.Attachment0 = att0
-        ap.Attachment1 = att1
-        ap.RigidityEnabled = true
-        ap.Responsiveness = 300
-        ap.MaxForce = math.huge
-        local ao = hrp:FindFirstChild("BlobAlignOri") or Instance.new("AlignOrientation", hrp)
-        ao.Name = "BlobAlignOri"
-        ao.Attachment0 = att0
-        ao.Attachment1 = att1
-        ao.Responsiveness = 300
-        ao.MaxTorque = math.huge
-        ao.RigidityEnabled = true
+    local holeActive = false
+    local holeSpin = 10000
+    local holeLift = 500
+    local holeRadius = 30
+
+    local function clearHole(char)
+        if not char then return end
+        for _, v in pairs(char:GetDescendants()) do
+            if v.Name == "BlackHoleSpin" or v.Name == "BlackHoleLift" or v.Name == "BlackHolePull" then
+                pcall(function() v:Destroy() end)
+            end
+        end
     end
 
-    local function releaseBlobAlign(blob)
-        local hrp = blob:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        if hrp:FindFirstChild("BlobAlignPos") then hrp.BlobAlignPos:Destroy() end
-        if hrp:FindFirstChild("BlobAlignOri") then hrp.BlobAlignOri:Destroy() end
-        if hrp:FindFirstChild("BlobAttachment") then hrp.BlobAttachment:Destroy() end
-        local targetPart = workspace:FindFirstChild("BlobTarget")
-        if targetPart then targetPart:Destroy() end
-    end
+    local function applyHole(char)
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum or hum.Health <= 0 then return end
 
-    local function getBlobman()
-        local blobFolder = workspace:FindFirstChild(Player.Name .. "SpawnedInToys")
-        if blobFolder then return blobFolder:FindFirstChild("CreatureBlobman") end
-        return nil
+        clearHole(char)
+
+        local spin = Instance.new("BodyAngularVelocity")
+        spin.Name = "BlackHoleSpin"
+        spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        spin.P = 100000
+        spin.AngularVelocity = Vector3.new(
+            math.random(-holeSpin, holeSpin),
+            holeSpin,
+            math.random(-holeSpin, holeSpin)
+        )
+        spin.Parent = hrp
+
+        local lift = Instance.new("BodyVelocity")
+        lift.Name = "BlackHoleLift"
+        lift.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        lift.P = 100000
+        lift.Velocity = Vector3.new(0, holeLift, 0)
+        lift.Parent = hrp
+
+        hum.PlatformStand = true
+        hum.Sit = false
+        hum.BreakJointsOnDeath = false
     end
 
     TargetGroup:CreateButton({
-        Name = "💥 Test Bomba (Single Target)",
+        Name = "🌑 HỐ ĐEN (TARGET)",
         Callback = function()
-            local blob = getBlobman()
-            if not blob then
-                Library:Notify({ Title = "Error", Content = "Blobman not found! Bật Auto Sit Blobman trước.", Duration = 3 })
-                return
-            end
             local targets = getTargets()
             if #targets == 0 then
                 Library:Notify({ Title = "Error", Content = "Chưa chọn target!", Duration = 3 })
@@ -2070,126 +2062,266 @@ do
                 Library:Notify({ Title = "Error", Content = "Target không hợp lệ!", Duration = 3 })
                 return
             end
-            local tChar = target.Character
-            local tRoot = tChar:FindFirstChild("HumanoidRootPart")
-            local tHum = tChar:FindFirstChild("Humanoid")
-            if not (tRoot and tHum and tHum.Health > 0) then
-                Library:Notify({ Title = "Error", Content = "Target đã chết hoặc không có HRP!", Duration = 3 })
+            local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
+            if not tRoot then
+                Library:Notify({ Title = "Error", Content = "Target không có HRP!", Duration = 3 })
                 return
             end
 
-            local localHrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-            if not localHrp then return end
+            Library:Notify({ Title = "Hố Đen", Content = "Đang tạo hố đen trên " .. target.DisplayName .. "...", Duration = 3 })
 
-            local grab = blob.BlobmanSeatAndOwnerScript.CreatureGrab
-            local release = blob.BlobmanSeatAndOwnerScript.CreatureRelease
-            local drop = blob.BlobmanSeatAndOwnerScript.CreatureDrop
-            local set = RS.GrabEvents.SetNetworkOwner
-            local del = RS.GrabEvents.DestroyGrabLine
-            local detector = blob.LeftDetector
-            local weld = blob.LeftDetector.LeftWeld
+            pcall(function()
+                RS.GrabEvents.SetNetworkOwner:FireServer(tRoot, tRoot.CFrame)
+                RS.GrabEvents.DestroyGrabLine:FireServer(tRoot)
+            end)
 
-            Library:Notify({ Title = "Test Bomba", Content = "Starting silent kick on " .. target.DisplayName .. "...", Duration = 3 })
+            task.wait(0.1)
+
+            applyHole(target.Character)
 
             task.spawn(function()
-                snapBlobTo(blob, tRoot.CFrame)
-                task.wait(0.15)
-                pcall(function()
-                    grab:FireServer(blob.RightDetector, tRoot, blob.RightDetector.RightWeld)
-                    release:FireServer(blob.RightDetector.RightWeld)
-                end)
-                task.wait(0.05)
-
-                snapBlobTo(blob, CFrame.new(Vector3.new(0, 100, 0)))
-                task.wait(0.1)
-
-                local blobHrp = blob:FindFirstChild("HumanoidRootPart")
-                if blobHrp then
-                    tRoot.CFrame = CFrame.new(blobHrp.Position.X, blobHrp.Position.Y + 20, blobHrp.Position.Z)
-                    task.wait(0.15)
-                    pcall(function() set:FireServer(tRoot, tRoot.CFrame) end)
-                    pcall(function() del:FireServer(tRoot) end)
-                    pcall(function()
-                        grab:FireServer(detector, localHrp, weld)
-                        grab:FireServer(detector, tRoot, weld)
-                        drop:FireServer(weld, tRoot.RootAttachment)
-                    end)
+                local startTime = tick()
+                while tick() - startTime < 5 do
+                    local tChar = target.Character
+                    local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                    if not tHrp then break end
+                    for _, plr in ipairs(PS:GetPlayers()) do
+                        if plr ~= target and plr.Character then
+                            local pRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                            local pHum = plr.Character:FindFirstChild("Humanoid")
+                            if pRoot and pHum and pHum.Health > 0 then
+                                local dist = (pRoot.Position - tHrp.Position).Magnitude
+                                if dist <= holeRadius then
+                                    pcall(function()
+                                        RS.GrabEvents.SetNetworkOwner:FireServer(pRoot, tHrp.CFrame)
+                                        RS.GrabEvents.DestroyGrabLine:FireServer(pRoot)
+                                    end)
+                                    local pull = pRoot:FindFirstChild("BlackHolePull")
+                                    if not pull then
+                                        pull = Instance.new("BodyVelocity")
+                                        pull.Name = "BlackHolePull"
+                                        pull.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                        pull.P = 100000
+                                        pull.Parent = pRoot
+                                    end
+                                    local dir = (tHrp.Position - pRoot.Position).Unit
+                                    pull.Velocity = dir * 300
+                                    pHum.PlatformStand = true
+                                end
+                            end
+                        end
+                    end
+                    RunService.Heartbeat:Wait()
                 end
+            end)
 
-                task.wait(1)
-                pcall(function() releaseBlobAlign(blob) end)
-                Library:Notify({ Title = "Success", Content = "Test Bomba (Single) execution complete!", Duration = 3 })
+            Library:Notify({ Title = "Hố Đen", Content = "Đã tạo hố đen! (tự tắt sau 5s)", Duration = 5 })
+
+            task.delay(5, function()
+                if target.Character then clearHole(target.Character) end
+                for _, plr in ipairs(PS:GetPlayers()) do
+                    if plr.Character then
+                        local pRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if pRoot then
+                            local pull = pRoot:FindFirstChild("BlackHolePull")
+                            if pull then pull:Destroy() end
+                        end
+                    end
+                end
             end)
         end
     })
 
-    TargetGroup:CreateButton({
-        Name = "💥 LONG Kick Target (Blobman)",
+    TargetGroup:CreateSlider({
+        Name = "🌑 Hố Đen - Spin Speed",
+        Flag = "BlackHoleSpinSpeed",
+        Min = 1000, Max = 50000, Default = 10000, Rounding = 0,
+        Callback = function(v) holeSpin = v end
+    })
+
+    TargetGroup:CreateSlider({
+        Name = "🌑 Hố Đen - Lift Force",
+        Flag = "BlackHoleLiftForce",
+        Min = 100, Max = 5000, Default = 500, Rounding = 0,
+        Callback = function(v) holeLift = v end
+    })
+
+    TargetGroup:CreateSlider({
+        Name = "🌑 Hố Đen - Pull Radius",
+        Flag = "BlackHolePullRadius",
+        Min = 10, Max = 100, Default = 30, Rounding = 0,
+        Callback = function(v) holeRadius = v end
+    })
+end
+
+-- ============================================================
+-- 🌑 HỐ ĐEN (BLACK HOLE) - BLOBMAN
+-- ============================================================
+do
+    local holeBlobActive = false
+    local holeBlobSpin = 15000
+    local holeBlobLift = 800
+
+    local function getBlobman()
+        local folder = workspace:FindFirstChild(Player.Name .. "SpawnedInToys")
+        return folder and folder:FindFirstChild("CreatureBlobman") or nil
+    end
+
+    local function clearHoleBlob(blob)
+        if not blob then return end
+        for _, v in pairs(blob:GetDescendants()) do
+            if v.Name == "BlackHoleSpin" or v.Name == "BlackHoleLift" then
+                pcall(function() v:Destroy() end)
+            end
+        end
+    end
+
+    BlobGroup:CreateButton({
+        Name = "🌑 HỐ ĐEN (BLOBMAN)",
         Callback = function()
             local blob = getBlobman()
             if not blob then
-                Library:Notify({ Title = "Error", Content = "Blobman not found! Bật Auto Sit Blobman trước.", Duration = 3 })
+                Library:Notify({ Title = "Error", Content = "Không tìm thấy Blobman! Bật Auto Sit Blobman trước.", Duration = 3 })
                 return
             end
+            local blobHrp = blob:FindFirstChild("HumanoidRootPart") or blob.PrimaryPart
+            if not blobHrp then
+                Library:Notify({ Title = "Error", Content = "Blobman không có HRP!", Duration = 3 })
+                return
+            end
+
+            Library:Notify({ Title = "Hố Đen", Content = "Đang tạo hố đen trên Blobman...", Duration = 3 })
+
+            pcall(function()
+                RS.GrabEvents.SetNetworkOwner:FireServer(blobHrp, blobHrp.CFrame)
+                RS.GrabEvents.DestroyGrabLine:FireServer(blobHrp)
+            end)
+
+            task.wait(0.1)
+
+            clearHoleBlob(blob)
+
+            local spin = Instance.new("BodyAngularVelocity")
+            spin.Name = "BlackHoleSpin"
+            spin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            spin.P = 100000
+            spin.AngularVelocity = Vector3.new(
+                math.random(-holeBlobSpin, holeBlobSpin),
+                holeBlobSpin,
+                math.random(-holeBlobSpin, holeBlobSpin)
+            )
+            spin.Parent = blobHrp
+
+            local lift = Instance.new("BodyVelocity")
+            lift.Name = "BlackHoleLift"
+            lift.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            lift.P = 100000
+            lift.Velocity = Vector3.new(0, holeBlobLift, 0)
+            lift.Parent = blobHrp
+
             local targets = getTargets()
-            if #targets == 0 then
-                Library:Notify({ Title = "Error", Content = "Chưa chọn target!", Duration = 3 })
-                return
-            end
-            local target = targets[1]
-            if not target or not target.Parent or not target.Character then
-                Library:Notify({ Title = "Error", Content = "Target không hợp lệ!", Duration = 3 })
-                return
-            end
-            local tChar = target.Character
-            local tRoot = tChar:FindFirstChild("HumanoidRootPart")
-            local tHum = tChar:FindFirstChild("Humanoid")
-            if not (tRoot and tHum and tHum.Health > 0) then
-                Library:Notify({ Title = "Error", Content = "Target đã chết hoặc không có HRP!", Duration = 3 })
-                return
-            end
+            for _, target in ipairs(targets) do
+                if target and target.Parent and target.Character then
+                    local tRoot = target.Character:FindFirstChild("HumanoidRootPart")
+                    local tHum = target.Character:FindFirstChild("Humanoid")
+                    if tRoot and tHum then
+                        pcall(function()
+                            RS.GrabEvents.SetNetworkOwner:FireServer(tRoot, tRoot.CFrame)
+                            RS.GrabEvents.DestroyGrabLine:FireServer(tRoot)
+                        end)
+                        tRoot.CFrame = blobHrp.CFrame * CFrame.new(math.random(-10, 10), 5, math.random(-10, 10))
+                        tHum.PlatformStand = true
 
-            local localHrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-            if not localHrp then return end
+                        task.wait(0.05)
 
-            local grab = blob.BlobmanSeatAndOwnerScript.CreatureGrab
-            local release = blob.BlobmanSeatAndOwnerScript.CreatureRelease
-            local drop = blob.BlobmanSeatAndOwnerScript.CreatureDrop
-            local set = RS.GrabEvents.SetNetworkOwner
-            local del = RS.GrabEvents.DestroyGrabLine
-            local detector = blob.LeftDetector
-            local weld = blob.LeftDetector.LeftWeld
+                        local tSpin = Instance.new("BodyAngularVelocity")
+                        tSpin.Name = "BlackHoleSpin"
+                        tSpin.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                        tSpin.P = 100000
+                        tSpin.AngularVelocity = Vector3.new(
+                            math.random(-holeBlobSpin, holeBlobSpin),
+                            holeBlobSpin,
+                            math.random(-holeBlobSpin, holeBlobSpin)
+                        )
+                        tSpin.Parent = tRoot
 
-            Library:Notify({ Title = "Kick Target", Content = "Đang kick " .. target.DisplayName .. "...", Duration = 3 })
+                        local tLift = Instance.new("BodyVelocity")
+                        tLift.Name = "BlackHoleLift"
+                        tLift.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                        tLift.P = 100000
+                        tLift.Velocity = Vector3.new(0, holeBlobLift, 0)
+                        tLift.Parent = tRoot
+                    end
+                end
+            end
 
             task.spawn(function()
-                snapBlobTo(blob, tRoot.CFrame)
-                task.wait(0.15)
-                pcall(function()
-                    grab:FireServer(blob.RightDetector, tRoot, blob.RightDetector.RightWeld)
-                    release:FireServer(blob.RightDetector.RightWeld)
-                end)
-                task.wait(0.05)
-                pcall(function()
-                    set:FireServer(tRoot, tRoot.CFrame)
-                    del:FireServer(tRoot)
-                end)
-                task.wait(0.05)
-                tRoot.CFrame = CFrame.new(tRoot.Position.X, tRoot.Position.Y + 100, tRoot.Position.Z)
-                task.wait(0.1)
-                pcall(function() drop:FireServer(weld, tRoot.RootAttachment) end)
-                task.wait(0.15)
-                pcall(function()
-                    tRoot.AssemblyLinearVelocity = Vector3.new(0, -500, 0)
-                    tRoot.AssemblyAngularVelocity = Vector3.new(math.random(-500,500), math.random(-500,500), math.random(-500,500))
-                end)
-                task.wait(0.2)
-                pcall(function() snapBlobTo(blob, CFrame.new(0, 100, 0)) end)
-                task.wait(0.3)
-                pcall(function() releaseBlobAlign(blob) end)
-                Library:Notify({ Title = "Kick Target", Content = "Đã kick xong " .. target.DisplayName .. "!", Duration = 3 })
+                local startTime = tick()
+                while tick() - startTime < 6 do
+                    local bHrp = blob:FindFirstChild("HumanoidRootPart") or blob.PrimaryPart
+                    if not bHrp then break end
+                    for _, plr in ipairs(PS:GetPlayers()) do
+                        if plr ~= Player and plr.Character then
+                            local pRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                            local pHum = plr.Character:FindFirstChild("Humanoid")
+                            if pRoot and pHum and pHum.Health > 0 then
+                                local dist = (pRoot.Position - bHrp.Position).Magnitude
+                                if dist <= 40 then
+                                    pcall(function()
+                                        RS.GrabEvents.SetNetworkOwner:FireServer(pRoot, bHrp.CFrame)
+                                        RS.GrabEvents.DestroyGrabLine:FireServer(pRoot)
+                                    end)
+                                    local pull = pRoot:FindFirstChild("BlackHolePull")
+                                    if not pull then
+                                        pull = Instance.new("BodyVelocity")
+                                        pull.Name = "BlackHolePull"
+                                        pull.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                        pull.P = 100000
+                                        pull.Parent = pRoot
+                                    end
+                                    local dir = (bHrp.Position - pRoot.Position).Unit
+                                    pull.Velocity = dir * 400
+                                    pHum.PlatformStand = true
+                                end
+                            end
+                        end
+                    end
+                    RunService.Heartbeat:Wait()
+                end
+            end)
+
+            Library:Notify({ Title = "Hố Đen", Content = "Hố đen Blobman đã kích hoạt! (tự tắt sau 6s)", Duration = 5 })
+
+            task.delay(6, function()
+                if blob then clearHoleBlob(blob) end
+                for _, plr in ipairs(PS:GetPlayers()) do
+                    if plr.Character then
+                        local pRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if pRoot then
+                            for _, v in pairs(pRoot:GetChildren()) do
+                                if v.Name == "BlackHolePull" or v.Name == "BlackHoleSpin" or v.Name == "BlackHoleLift" then
+                                    v:Destroy()
+                                end
+                            end
+                        end
+                    end
+                end
             end)
         end
+    })
+
+    BlobGroup:CreateSlider({
+        Name = "🌑 Hố Đen Blob - Spin Speed",
+        Flag = "BlackHoleBlobSpin",
+        Min = 1000, Max = 50000, Default = 15000, Rounding = 0,
+        Callback = function(v) holeBlobSpin = v end
+    })
+
+    BlobGroup:CreateSlider({
+        Name = "🌑 Hố Đen Blob - Lift Force",
+        Flag = "BlackHoleBlobLift",
+        Min = 100, Max = 5000, Default = 800, Rounding = 0,
+        Callback = function(v) holeBlobLift = v end
     })
 end
 -- ============================================================
@@ -3654,5 +3786,6 @@ print("✅ LONG GUI - HOÀNG BẢO LONG")
 print("🏴 CLAN RAVEN")
 print("📌 Tất cả chức năng Blobman từ XOCU (đổi tên LONG)")
 print("📌 Multi Target + Kick All + Anti Grab + Anti Blob + Anti Gucci + Blob Fly")
+print("📌 🌑 HỐ ĐEN (Target + Blobman)")
 print("📌 Menu: RightShift")
 print("========================================")
