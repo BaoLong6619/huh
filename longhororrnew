@@ -1,0 +1,1497 @@
+--[[
+    ✦ LONG GUI v5.1 - Aurora Glass Edition ✦
+    - Mouse unlock tự động khi mở menu (fix game lock chuột)
+    - Noclip reset siêu nhanh (lưu CanCollide gốc, restore tức thì)
+    - Aurora Glass Button (kính mờ + viền gradient xoay + shimmer)
+    - Font GothamBlack, không icon
+    - Giữ nguyên hố đen Interstellar + starfield + toàn bộ logic
+--]]
+
+--// ===== SERVICES =====
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local ProximityService = game:GetService("ProximityPromptService")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+pcall(function()
+    local o = CoreGui:FindFirstChild("LongGui")
+    if o then o:Destroy() end
+end)
+
+--// ===== CONFIG =====
+local CFG = {
+    Size = UDim2.new(0, 660, 0, 460),
+    Bg = Color3.fromRGB(6, 6, 14),
+    Panel = Color3.fromRGB(13, 13, 26),
+    Side = Color3.fromRGB(9, 9, 18),
+    Accent = Color3.fromRGB(140, 90, 255),
+    Accent2 = Color3.fromRGB(255, 100, 180),
+    Cyan = Color3.fromRGB(80, 220, 255),
+    Gold = Color3.fromRGB(255, 200, 120),
+    Text = Color3.fromRGB(240, 240, 255),
+    Dim = Color3.fromRGB(130, 130, 165),
+    Line = Color3.fromRGB(35, 35, 55),
+    MacRed = Color3.fromRGB(255, 95, 87),
+    MacYellow = Color3.fromRGB(254, 188, 46),
+    MacGreen = Color3.fromRGB(40, 200, 64),
+}
+_G.LongGuiKeybind = Enum.KeyCode.R
+_G.LongGuiEffects = { BlackHole = true, Starfield = true, Animations = true }
+_G.LongGuiFloat = { Enabled = true, Pulse = true, Rotate = true, Size = 54 }
+_G.LongGuiAutoUnlockMouse = true
+
+--// ===== SCREEN GUI =====
+local SG = Instance.new("ScreenGui")
+SG.Name = "LongGui"
+SG.ResetOnSpawn = false
+SG.IgnoreGuiInset = true
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() SG.Parent = CoreGui end)
+if not SG.Parent then SG.Parent = LP:WaitForChild("PlayerGui") end
+
+--// ==========================================================
+--  FLOATING BUTTON
+--// ==========================================================
+local Float = Instance.new("TextButton")
+Float.Name = "FloatBtn"
+Float.Size = UDim2.new(0, 54, 0, 54)
+Float.Position = UDim2.new(0, 20, 0.5, -27)
+Float.BackgroundColor3 = Color3.fromRGB(12, 8, 24)
+Float.Text = ""
+Float.AutoButtonColor = false
+Float.ZIndex = 999
+Float.Parent = SG
+
+local FCorner = Instance.new("UICorner")
+FCorner.CornerRadius = UDim.new(1, 0)
+FCorner.Parent = Float
+
+local FStroke = Instance.new("UIStroke")
+FStroke.Color = CFG.Accent
+FStroke.Thickness = 2
+FStroke.Transparency = 0.15
+FStroke.Parent = Float
+
+local FInner = Instance.new("Frame")
+FInner.Size = UDim2.new(0, 42, 0, 42)
+FInner.Position = UDim2.new(0.5, -21, 0.5, -21)
+FInner.BackgroundColor3 = Color3.fromRGB(30, 15, 60)
+FInner.BorderSizePixel = 0
+FInner.ZIndex = 1000
+FInner.Parent = Float
+
+local FInnerC = Instance.new("UICorner")
+FInnerC.CornerRadius = UDim.new(1, 0)
+FInnerC.Parent = FInner
+
+local FInnerG = Instance.new("UIGradient")
+FInnerG.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, CFG.Accent),
+    ColorSequenceKeypoint.new(0.5, CFG.Accent2),
+    ColorSequenceKeypoint.new(1, CFG.Cyan),
+})
+FInnerG.Parent = FInner
+
+local FIcon = Instance.new("TextLabel")
+FIcon.Size = UDim2.new(1, 0, 1, 0)
+FIcon.BackgroundTransparency = 1
+FIcon.Text = "L"
+FIcon.TextColor3 = Color3.new(1, 1, 1)
+FIcon.Font = Enum.Font.GothamBlack
+FIcon.TextSize = 24
+FIcon.ZIndex = 1001
+FIcon.Parent = FInner
+
+task.spawn(function()
+    while Float.Parent do
+        if _G.LongGuiFloat.Rotate then
+            for i = 0, 360, 6 do
+                if not Float.Parent or not _G.LongGuiFloat.Rotate then break end
+                FInnerG.Rotation = i
+                task.wait(0.05)
+            end
+        else task.wait(0.3) end
+    end
+end)
+
+task.spawn(function()
+    while Float.Parent do
+        if _G.LongGuiFloat.Pulse then
+            local p = 1 + math.sin(tick() * 2) * 0.06
+            local s = _G.LongGuiFloat.Size * p
+            FInner.Size = UDim2.new(0, s - 12, 0, s - 12)
+            FInner.Position = UDim2.new(0.5, -(s-12)/2, 0.5, -(s-12)/2)
+            task.wait(0.03)
+        else
+            FInner.Size = UDim2.new(0, _G.LongGuiFloat.Size - 12, 0, _G.LongGuiFloat.Size - 12)
+            FInner.Position = UDim2.new(0.5, -(_G.LongGuiFloat.Size-12)/2, 0.5, -(_G.LongGuiFloat.Size-12)/2)
+            task.wait(0.3)
+        end
+    end
+end)
+
+Float.MouseEnter:Connect(function()
+    TweenService:Create(Float, TweenInfo.new(0.2), {
+        Size = UDim2.new(0, _G.LongGuiFloat.Size + 8, 0, _G.LongGuiFloat.Size + 8),
+        Position = Float.Position - UDim2.new(0, 4, 0, 4),
+    }):Play()
+end)
+Float.MouseLeave:Connect(function()
+    TweenService:Create(Float, TweenInfo.new(0.2), {
+        Size = UDim2.new(0, _G.LongGuiFloat.Size, 0, _G.LongGuiFloat.Size),
+    }):Play()
+end)
+
+do
+    local dragging, dragStart, startPos
+    Float.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Float.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local d = input.Position - dragStart
+            Float.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+--// ===== MAIN FRAME =====
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = CFG.Size
+Main.Position = UDim2.new(0.5, -CFG.Size.X.Offset/2, 0.5, -CFG.Size.Y.Offset/2)
+Main.BackgroundColor3 = CFG.Bg
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Parent = SG
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(60, 60, 80)
+MainStroke.Thickness = 1
+MainStroke.Transparency = 0.7
+MainStroke.Parent = Main
+
+local Shadow = Instance.new("ImageLabel")
+Shadow.Name = "Shadow"
+Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+Shadow.Size = UDim2.new(1, 40, 1, 40)
+Shadow.Position = UDim2.new(0.5, 0, 0.5, 4)
+Shadow.BackgroundTransparency = 1
+Shadow.Image = "rbxassetid://5028857084"
+Shadow.ImageColor3 = Color3.new(0, 0, 0)
+Shadow.ImageTransparency = 0.4
+Shadow.ScaleType = Enum.ScaleType.Slice
+Shadow.SliceCenter = Rect.new(24, 24, 276, 276)
+Shadow.ZIndex = 0
+Shadow.Parent = Main
+
+--// ===== BLACK HOLE =====
+local BHS = 300
+local BH = Instance.new("Frame")
+BH.Name = "BlackHole"
+BH.Size = UDim2.new(0, BHS, 0, BHS)
+BH.Position = UDim2.new(0.5, -BHS/2, 0.5, -BHS/2 + 10)
+BH.BackgroundTransparency = 1
+BH.ZIndex = 1
+BH.Parent = Main
+
+local Glows = {}
+for i, def in ipairs({
+    {s = 300, t = 0.93, c = Color3.fromRGB(255, 120, 50)},
+    {s = 230, t = 0.88, c = Color3.fromRGB(255, 170, 95)},
+    {s = 165, t = 0.82, c = Color3.fromRGB(255, 215, 155)},
+}) do
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, def.s, 0, def.s)
+    f.Position = UDim2.new(0.5, -def.s/2, 0.5, -def.s/2)
+    f.BackgroundColor3 = def.c
+    f.BackgroundTransparency = def.t
+    f.BorderSizePixel = 0
+    f.ZIndex = 1
+    f.Parent = BH
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = f
+    Glows[#Glows+1] = {frame = f, base = def.t, phase = i * 1.1}
+end
+
+local Disk = Instance.new("Frame")
+Disk.Size = UDim2.new(0, 280, 0, 38)
+Disk.Position = UDim2.new(0.5, -140, 0.5, -19)
+Disk.BackgroundColor3 = Color3.fromRGB(255, 190, 120)
+Disk.BackgroundTransparency = 0.3
+Disk.BorderSizePixel = 0
+Disk.ZIndex = 2
+Disk.Parent = BH
+local DC = Instance.new("UICorner") DC.CornerRadius = UDim.new(1, 0) DC.Parent = Disk
+local DG = Instance.new("UIGradient")
+DG.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 20)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 250, 230)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 80, 20)),
+})
+DG.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.95),
+    NumberSequenceKeypoint.new(0.5, 0),
+    NumberSequenceKeypoint.new(1, 0.95),
+})
+DG.Parent = Disk
+
+for _, yOff in ipairs({-80, 20}) do
+    local arc = Instance.new("Frame")
+    arc.Size = UDim2.new(0, 180, 0, 60)
+    arc.Position = UDim2.new(0.5, -90, 0.5, yOff)
+    arc.BackgroundColor3 = Color3.fromRGB(255, 210, 160)
+    arc.BackgroundTransparency = 0.4
+    arc.BorderSizePixel = 0
+    arc.ZIndex = 3
+    arc.Parent = BH
+    local ac = Instance.new("UICorner") ac.CornerRadius = UDim.new(1, 0) ac.Parent = arc
+    local ag = Instance.new("UIGradient")
+    ag.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 140, 70)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 245, 225)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 140, 70)),
+    })
+    ag.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.9),
+        NumberSequenceKeypoint.new(0.5, 0.15),
+        NumberSequenceKeypoint.new(1, 0.9),
+    })
+    ag.Parent = arc
+end
+
+local EH = Instance.new("Frame")
+EH.Size = UDim2.new(0, 120, 0, 120)
+EH.Position = UDim2.new(0.5, -60, 0.5, -60)
+EH.BackgroundColor3 = Color3.new(0, 0, 0)
+EH.BorderSizePixel = 0
+EH.ZIndex = 5
+EH.Parent = BH
+local EHC = Instance.new("UICorner") EHC.CornerRadius = UDim.new(1, 0) EHC.Parent = EH
+
+local PR = Instance.new("Frame")
+PR.Size = UDim2.new(0, 128, 0, 128)
+PR.Position = UDim2.new(0.5, -64, 0.5, -64)
+PR.BackgroundTransparency = 1
+PR.ZIndex = 4
+PR.Parent = BH
+local PRC = Instance.new("UICorner") PRC.CornerRadius = UDim.new(1, 0) PRC.Parent = PR
+local PRS = Instance.new("UIStroke")
+PRS.Color = Color3.fromRGB(255, 245, 220)
+PRS.Thickness = 2
+PRS.Transparency = 0.05
+PRS.Parent = PR
+
+local FD = Instance.new("Frame")
+FD.Size = UDim2.new(0, 280, 0, 8)
+FD.Position = UDim2.new(0.5, -140, 0.5, -4)
+FD.BackgroundColor3 = Color3.fromRGB(255, 245, 230)
+FD.BackgroundTransparency = 0.5
+FD.BorderSizePixel = 0
+FD.ZIndex = 6
+FD.Parent = BH
+local FDC = Instance.new("UICorner") FDC.CornerRadius = UDim.new(1, 0) FDC.Parent = FD
+local FDG = Instance.new("UIGradient")
+FDG.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 170, 90)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 250)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 170, 90)),
+})
+FDG.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.95),
+    NumberSequenceKeypoint.new(0.5, 0.3),
+    NumberSequenceKeypoint.new(1, 0.95),
+})
+FDG.Parent = FD
+
+local Parts = {}
+for i = 1, 12 do
+    local p = Instance.new("Frame")
+    local sz = math.random(2, 4)
+    p.Size = UDim2.new(0, sz, 0, sz)
+    p.BackgroundColor3 = Color3.fromRGB(255, math.random(180, 240), math.random(120, 200))
+    p.BackgroundTransparency = 0.15
+    p.BorderSizePixel = 0
+    p.ZIndex = 7
+    p.Parent = BH
+    local pc = Instance.new("UICorner") pc.CornerRadius = UDim.new(1, 0) pc.Parent = p
+    Parts[#Parts+1] = {
+        f = p,
+        a = math.random() * math.pi * 2,
+        r = math.random(90, 140),
+        sp = math.random(40, 90) / 100,
+    }
+end
+
+--// ===== STARFIELD =====
+local SF = Instance.new("Frame")
+SF.Name = "Starfield"
+SF.Size = UDim2.new(1, 0, 1, 0)
+SF.BackgroundTransparency = 1
+SF.ClipsDescendants = true
+SF.ZIndex = 0
+SF.Parent = Main
+
+local Stars = {}
+for i = 1, 50 do
+    local s = Instance.new("Frame")
+    s.BackgroundColor3 = Color3.new(1, 1, 1)
+    s.BorderSizePixel = 0
+    local sz = math.random(1, 2)
+    s.Size = UDim2.new(0, sz, 0, sz)
+    s.Position = UDim2.new(math.random(), 0, math.random(), 0)
+    s.ZIndex = 0
+    s.Parent = SF
+    local sc = Instance.new("UICorner") sc.CornerRadius = UDim.new(1, 0) sc.Parent = s
+    Stars[#Stars+1] = {f = s, sp = math.random(15, 50)/100, ph = math.random()*6.28}
+end
+
+--// ===== ANIMATION LOOP =====
+RunService.RenderStepped:Connect(function(dt)
+    if not Main.Visible or not _G.LongGuiEffects.Animations then return end
+
+    if _G.LongGuiEffects.BlackHole then
+        BH.Visible = true
+        for _, g in ipairs(Glows) do
+            if g.frame.Parent then
+                g.frame.BackgroundTransparency = g.base + math.sin(tick() * 1.5 + g.phase) * 0.03
+            end
+        end
+        DG.Offset = Vector2.new(math.sin(tick() * 0.4) * 0.18, 0)
+        FDG.Offset = Vector2.new(math.sin(tick() * 0.5 + 2) * 0.18, 0)
+        local pu = 1 + math.sin(tick() * 2.5) * 0.035
+        local ps = 128 * pu
+        PR.Size = UDim2.new(0, ps, 0, ps)
+        PR.Position = UDim2.new(0.5, -ps/2, 0.5, -ps/2)
+        PRS.Transparency = 0.05 + math.sin(tick() * 3) * 0.08
+        PRS.Thickness = 2 + math.sin(tick() * 2) * 0.4
+
+        for _, p in ipairs(Parts) do
+            if not p.f.Parent then continue end
+            p.a = p.a + dt * p.sp * 2.2
+            p.r = p.r - dt * 30
+            if p.r < 65 then
+                p.r = math.random(115, 145)
+                p.a = math.random() * math.pi * 2
+            end
+            local cx = BHS/2 + math.cos(p.a) * p.r - p.f.Size.X.Offset/2
+            local cy = BHS/2 + math.sin(p.a) * p.r * 0.35 - p.f.Size.Y.Offset/2
+            p.f.Position = UDim2.new(0, cx, 0, cy)
+            p.f.BackgroundTransparency = math.clamp((p.r - 55) / 110, 0.05, 0.85)
+        end
+    else
+        BH.Visible = false
+    end
+
+    if _G.LongGuiEffects.Starfield then
+        SF.Visible = true
+        for _, s in ipairs(Stars) do
+            if not s.f.Parent then continue end
+            local p = s.f.Position
+            local ny = p.Y.Scale + s.sp * dt * 0.09
+            if ny > 1 then
+                ny = -0.02
+                s.f.Position = UDim2.new(math.random(), 0, ny, 0)
+            else
+                s.f.Position = UDim2.new(p.X.Scale, 0, ny, 0)
+            end
+            s.ph = s.ph + dt * 3
+            s.f.BackgroundTransparency = 0.4 + math.sin(s.ph) * 0.3
+        end
+    else
+        SF.Visible = false
+    end
+end)
+
+--// ==========================================================
+--  MOUSE UNLOCK (override game lock mỗi frame)
+--// ==========================================================
+local mouseUnlockConn = nil
+
+local function SetMouseUnlocked(state)
+    if state then
+        if mouseUnlockConn then return end
+        pcall(function() UserInputService.MouseBehavior = Enum.MouseBehavior.Default end)
+        pcall(function() UserInputService.MouseIconEnabled = true end)
+        mouseUnlockConn = RunService.RenderStepped:Connect(function()
+            if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+                pcall(function()
+                    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+                end)
+            end
+            if not UserInputService.MouseIconEnabled then
+                pcall(function()
+                    UserInputService.MouseIconEnabled = true
+                end)
+            end
+        end)
+    else
+        if mouseUnlockConn then
+            mouseUnlockConn:Disconnect()
+            mouseUnlockConn = nil
+        end
+    end
+end
+
+--// ==========================================================
+--  SHOW / HIDE WRAPPER
+--// ==========================================================
+local function ShowMain()
+    Main.Visible = true
+    Main.Size = UDim2.new(0, 0, 0, 0)
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    TweenService:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = CFG.Size,
+        Position = UDim2.new(0.5, -CFG.Size.X.Offset/2, 0.5, -CFG.Size.Y.Offset/2),
+    }):Play()
+    if _G.LongGuiAutoUnlockMouse then
+        SetMouseUnlocked(true)
+    end
+end
+
+local function HideMain()
+    Main.Visible = false
+    if _G.LongGuiAutoUnlockMouse then
+        SetMouseUnlocked(false)
+    end
+end
+
+--// ==========================================================
+--  HEADER
+--// ==========================================================
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 42)
+Header.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+Header.BackgroundTransparency = 0.15
+Header.BorderSizePixel = 0
+Header.ZIndex = 20
+Header.Parent = Main
+
+local HeaderLine = Instance.new("Frame")
+HeaderLine.Size = UDim2.new(1, 0, 0, 1)
+HeaderLine.Position = UDim2.new(0, 0, 1, -1)
+HeaderLine.BackgroundColor3 = CFG.Line
+HeaderLine.BorderSizePixel = 0
+HeaderLine.ZIndex = 20
+HeaderLine.Parent = Header
+
+local trafficData = {
+    {name = "Red", color = CFG.MacRed, hover = Color3.fromRGB(255, 120, 110)},
+    {name = "Yellow", color = CFG.MacYellow, hover = Color3.fromRGB(255, 210, 80)},
+    {name = "Green", color = CFG.MacGreen, hover = Color3.fromRGB(80, 220, 100)},
+}
+local trafficBtns = {}
+for i, t in ipairs(trafficData) do
+    local b = Instance.new("TextButton")
+    b.Name = t.name
+    b.Size = UDim2.new(0, 12, 0, 12)
+    b.Position = UDim2.new(0, 14 + (i-1) * 20, 0.5, -6)
+    b.BackgroundColor3 = t.color
+    b.Text = ""
+    b.AutoButtonColor = false
+    b.ZIndex = 21
+    b.Parent = Header
+    local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(1, 0) bc.Parent = b
+
+    b.MouseEnter:Connect(function()
+        TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = t.hover}):Play()
+    end)
+    b.MouseLeave:Connect(function()
+        TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = t.color}):Play()
+    end)
+    trafficBtns[t.name] = b
+end
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -200, 1, 0)
+Title.Position = UDim2.new(0, 100, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "L O N G   G U I"
+Title.TextColor3 = CFG.Text
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 14
+Title.ZIndex = 21
+Title.Parent = Header
+
+local TG = Instance.new("UIGradient")
+TG.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, CFG.Cyan),
+    ColorSequenceKeypoint.new(0.35, CFG.Accent2),
+    ColorSequenceKeypoint.new(0.7, CFG.Gold),
+    ColorSequenceKeypoint.new(1, CFG.Accent),
+})
+TG.Parent = Title
+
+task.spawn(function()
+    while Title.Parent do
+        for i = 0, 360, 4 do
+            if not Title.Parent then break end
+            TG.Rotation = i
+            task.wait(0.04)
+        end
+    end
+end)
+
+local KBHint = Instance.new("TextLabel")
+KBHint.Size = UDim2.new(0, 100, 1, 0)
+KBHint.Position = UDim2.new(1, -110, 0, 0)
+KBHint.BackgroundTransparency = 1
+KBHint.Text = "Press R"
+KBHint.TextColor3 = CFG.Dim
+KBHint.Font = Enum.Font.GothamMedium
+KBHint.TextSize = 11
+KBHint.ZIndex = 21
+KBHint.Parent = Header
+
+--// ==========================================================
+--  SIDEBAR
+--// ==========================================================
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 62, 1, -42)
+Sidebar.Position = UDim2.new(0, 0, 0, 42)
+Sidebar.BackgroundColor3 = CFG.Side
+Sidebar.BackgroundTransparency = 0.3
+Sidebar.BorderSizePixel = 0
+Sidebar.ZIndex = 20
+Sidebar.Parent = Main
+
+local SideLine = Instance.new("Frame")
+SideLine.Size = UDim2.new(0, 1, 1, 0)
+SideLine.Position = UDim2.new(1, -1, 0, 0)
+SideLine.BackgroundColor3 = CFG.Line
+SideLine.BorderSizePixel = 0
+SideLine.ZIndex = 20
+SideLine.Parent = Sidebar
+
+local SideList = Instance.new("UIListLayout")
+SideList.Padding = UDim.new(0, 8)
+SideList.SortOrder = Enum.SortOrder.LayoutOrder
+SideList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+SideList.Parent = Sidebar
+
+local SidePad = Instance.new("UIPadding")
+SidePad.PaddingTop = UDim.new(0, 14)
+SidePad.Parent = Sidebar
+
+--// ==========================================================
+--  CONTENT
+--// ==========================================================
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Size = UDim2.new(1, -62, 1, -42)
+Content.Position = UDim2.new(0, 62, 0, 42)
+Content.BackgroundTransparency = 1
+Content.ZIndex = 15
+Content.Parent = Main
+
+--// ==========================================================
+--  TAB SYSTEM
+--// ==========================================================
+local ActiveTab = nil
+local Pages = {}
+local TabBtns = {}
+
+local function CreateTab(name, letter)
+    local btn = Instance.new("TextButton")
+    btn.Name = name .. "Btn"
+    btn.Size = UDim2.new(0, 42, 0, 42)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 38)
+    btn.BackgroundTransparency = 0.4
+    btn.Text = letter
+    btn.TextColor3 = CFG.Dim
+    btn.Font = Enum.Font.GothamBlack
+    btn.TextSize = 15
+    btn.AutoButtonColor = false
+    btn.ZIndex = 22
+    btn.Parent = Sidebar
+
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 12) c.Parent = btn
+    local s = Instance.new("UIStroke")
+    s.Color = CFG.Accent; s.Thickness = 1; s.Transparency = 1
+    s.Parent = btn
+
+    local page = Instance.new("ScrollingFrame")
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, -30, 1, -30)
+    page.Position = UDim2.new(0, 15, 0, 15)
+    page.BackgroundColor3 = CFG.Panel
+    page.BackgroundTransparency = 0.3
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 3
+    page.ScrollBarImageColor3 = CFG.Accent
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.Visible = false
+    page.ZIndex = 16
+    page.Parent = Content
+
+    local pc = Instance.new("UICorner") pc.CornerRadius = UDim.new(0, 12) pc.Parent = page
+    local ps = Instance.new("UIStroke")
+    ps.Color = CFG.Line; ps.Thickness = 1
+    ps.Parent = page
+
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop = UDim.new(0, 14); pad.PaddingBottom = UDim.new(0, 14)
+    pad.PaddingLeft = UDim.new(0, 16); pad.PaddingRight = UDim.new(0, 16)
+    pad.Parent = page
+
+    local lay = Instance.new("UIListLayout")
+    lay.Padding = UDim.new(0, 10)
+    lay.SortOrder = Enum.SortOrder.LayoutOrder
+    lay.Parent = page
+
+    Pages[name] = page
+    TabBtns[name] = btn
+
+    local function Activate()
+        if ActiveTab == name then return end
+        ActiveTab = name
+        for n, b in pairs(TabBtns) do
+            local on = n == name
+            TweenService:Create(b, TweenInfo.new(0.25), {
+                BackgroundColor3 = on and CFG.Accent or Color3.fromRGB(20, 20, 38),
+                BackgroundTransparency = on and 0.15 or 0.4,
+                TextColor3 = on and Color3.new(1,1,1) or CFG.Dim,
+            }):Play()
+            TweenService:Create(b:FindFirstChildOfClass("UIStroke"), TweenInfo.new(0.25), {
+                Transparency = on and 0.3 or 1,
+            }):Play()
+        end
+        for n, p in pairs(Pages) do p.Visible = n == name end
+    end
+
+    btn.MouseEnter:Connect(function()
+        if ActiveTab ~= name then
+            TweenService:Create(btn, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(30, 30, 52),
+                TextColor3 = CFG.Text,
+            }):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if ActiveTab ~= name then
+            TweenService:Create(btn, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(20, 20, 38),
+                TextColor3 = CFG.Dim,
+            }):Play()
+        end
+    end)
+    btn.MouseButton1Click:Connect(Activate)
+    return page, Activate
+end
+
+--// ==========================================================
+--  COMPONENTS
+--// ==========================================================
+local function Section(parent, text)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, 0, 0, 20)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = CFG.Accent2
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 11
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.ZIndex = 17
+    l.Parent = parent
+    return l
+end
+
+local function Label(parent, text, size)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, 0, 0, size or 18)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = CFG.Dim
+    l.Font = Enum.Font.GothamMedium
+    l.TextSize = 11
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.ZIndex = 17
+    l.Parent = parent
+    return l
+end
+
+local function AuroraButton(parent, text, callback, accentType)
+    accentType = accentType or "violet"
+    local colA, colB, colC
+    if accentType == "violet" then
+        colA, colB, colC = CFG.Cyan, CFG.Accent2, CFG.Accent
+    elseif accentType == "gold" then
+        colA, colB, colC = Color3.fromRGB(255, 220, 130), CFG.Gold, Color3.fromRGB(255, 140, 60)
+    elseif accentType == "red" then
+        colA, colB, colC = Color3.fromRGB(255, 150, 150), Color3.fromRGB(255, 80, 90), Color3.fromRGB(200, 40, 60)
+    elseif accentType == "green" then
+        colA, colB, colC = Color3.fromRGB(150, 255, 180), Color3.fromRGB(60, 220, 130), Color3.fromRGB(40, 160, 100)
+    elseif accentType == "cyan" then
+        colA, colB, colC = Color3.fromRGB(180, 240, 255), CFG.Cyan, Color3.fromRGB(40, 140, 220)
+    end
+
+    local wrap = Instance.new("Frame")
+    wrap.Size = UDim2.new(1, 0, 0, 42)
+    wrap.BackgroundTransparency = 1
+    wrap.ZIndex = 17
+    wrap.Parent = parent
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(22, 22, 40)
+    btn.BackgroundTransparency = 0.15
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.ZIndex = 17
+    btn.Parent = wrap
+
+    local bc = Instance.new("UICorner")
+    bc.CornerRadius = UDim.new(0, 12)
+    bc.Parent = btn
+
+    local fillLayer = Instance.new("Frame")
+    fillLayer.Size = UDim2.new(1, 0, 1, 0)
+    fillLayer.BackgroundColor3 = Color3.fromRGB(40, 30, 70)
+    fillLayer.BackgroundTransparency = 0.55
+    fillLayer.BorderSizePixel = 0
+    fillLayer.ZIndex = 17
+    fillLayer.Parent = btn
+    local flc = Instance.new("UICorner") flc.CornerRadius = UDim.new(0, 12) flc.Parent = fillLayer
+    local flg = Instance.new("UIGradient")
+    flg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, colA),
+        ColorSequenceKeypoint.new(0.5, colB),
+        ColorSequenceKeypoint.new(1, colC),
+    })
+    flg.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.92),
+        NumberSequenceKeypoint.new(0.5, 0.75),
+        NumberSequenceKeypoint.new(1, 0.92),
+    })
+    flg.Rotation = 45
+    flg.Parent = fillLayer
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.new(1, 1, 1)
+    stroke.Thickness = 1.2
+    stroke.Transparency = 0.3
+    stroke.Parent = btn
+
+    local strokeGrad = Instance.new("UIGradient")
+    strokeGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, colA),
+        ColorSequenceKeypoint.new(0.33, colB),
+        ColorSequenceKeypoint.new(0.66, colC),
+        ColorSequenceKeypoint.new(1, colA),
+    })
+    strokeGrad.Rotation = 0
+    strokeGrad.Parent = btn
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = CFG.Text
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 13
+    lbl.ZIndex = 19
+    lbl.Parent = btn
+
+    local hl = Instance.new("Frame")
+    hl.Size = UDim2.new(1, -16, 0, 1)
+    hl.Position = UDim2.new(0, 8, 0, 1)
+    hl.BackgroundColor3 = Color3.new(1, 1, 1)
+    hl.BackgroundTransparency = 0.75
+    hl.BorderSizePixel = 0
+    hl.ZIndex = 18
+    hl.Parent = btn
+
+    local shimmer = Instance.new("Frame")
+    shimmer.Size = UDim2.new(0, 80, 1, 0)
+    shimmer.Position = UDim2.new(-0.3, 0, 0, 0)
+    shimmer.BackgroundColor3 = Color3.new(1, 1, 1)
+    shimmer.BackgroundTransparency = 0.88
+    shimmer.BorderSizePixel = 0
+    shimmer.ZIndex = 18
+    shimmer.Parent = btn
+    local shc = Instance.new("UICorner") shc.CornerRadius = UDim.new(0, 12) shc.Parent = shimmer
+
+    local shimmerGrad = Instance.new("UIGradient")
+    shimmerGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.5),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    shimmerGrad.Rotation = 0
+    shimmerGrad.Parent = shimmer
+
+    local rotActive = false
+    task.spawn(function()
+        while btn.Parent do
+            if rotActive then
+                for i = 0, 360, 4 do
+                    if not btn.Parent or not rotActive then break end
+                    strokeGrad.Rotation = i
+                    task.wait(0.03)
+                end
+            else
+                task.wait(0.15)
+            end
+        end
+    end)
+
+    btn.MouseEnter:Connect(function()
+        rotActive = true
+        TweenService:Create(fillLayer, TweenInfo.new(0.3), {BackgroundTransparency = 0.35}):Play()
+        TweenService:Create(flg, TweenInfo.new(0.3), {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.75),
+                NumberSequenceKeypoint.new(0.5, 0.4),
+                NumberSequenceKeypoint.new(1, 0.75),
+            }),
+        }):Play()
+        TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0.05, Thickness = 1.8}):Play()
+        TweenService:Create(lbl, TweenInfo.new(0.3), {TextColor3 = Color3.new(1, 1, 1)}):Play()
+
+        shimmer.Position = UDim2.new(-0.3, 0, 0, 0)
+        TweenService:Create(shimmer, TweenInfo.new(0.7, Enum.EasingStyle.Quad), {
+            Position = UDim2.new(1.1, 0, 0, 0),
+        }):Play()
+    end)
+
+    btn.MouseLeave:Connect(function()
+        rotActive = false
+        TweenService:Create(fillLayer, TweenInfo.new(0.3), {BackgroundTransparency = 0.55}):Play()
+        TweenService:Create(flg, TweenInfo.new(0.3), {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.92),
+                NumberSequenceKeypoint.new(0.5, 0.75),
+                NumberSequenceKeypoint.new(1, 0.92),
+            }),
+        }):Play()
+        TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0.3, Thickness = 1.2}):Play()
+        TweenService:Create(lbl, TweenInfo.new(0.3), {TextColor3 = CFG.Text}):Play()
+        strokeGrad.Rotation = 0
+    end)
+
+    btn.MouseButton1Down:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.08), {
+            Size = UDim2.new(0.96, 0, 0.9, 0),
+            Position = UDim2.new(0.02, 0, 0.05, 0),
+        }):Play()
+        TweenService:Create(fillLayer, TweenInfo.new(0.08), {BackgroundTransparency = 0.1}):Play()
+    end)
+    btn.MouseButton1Up:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+            Size = UDim2.new(1, 0, 1, 0),
+            Position = UDim2.new(0, 0, 0, 0),
+        }):Play()
+        TweenService:Create(fillLayer, TweenInfo.new(0.3), {BackgroundTransparency = 0.35}):Play()
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        if callback then task.spawn(callback) end
+    end)
+
+    return btn
+end
+
+local function Toggle(parent, text, default, callback)
+    local state = default or false
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 38)
+    f.BackgroundTransparency = 1
+    f.ZIndex = 17
+    f.Parent = parent
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, -70, 1, 0)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = CFG.Text
+    l.Font = Enum.Font.GothamMedium
+    l.TextSize = 12
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.ZIndex = 17
+    l.Parent = f
+
+    local t = Instance.new("TextButton")
+    t.Size = UDim2.new(0, 48, 0, 26)
+    t.Position = UDim2.new(1, -48, 0.5, -13)
+    t.BackgroundColor3 = state and CFG.Accent or Color3.fromRGB(40, 40, 58)
+    t.Text = ""
+    t.AutoButtonColor = false
+    t.ZIndex = 17
+    t.Parent = f
+    local tc = Instance.new("UICorner") tc.CornerRadius = UDim.new(1, 0) tc.Parent = t
+
+    local tg = Instance.new("UIGradient")
+    tg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CFG.Cyan),
+        ColorSequenceKeypoint.new(1, CFG.Accent2),
+    })
+    tg.Parent = t
+
+    local k = Instance.new("Frame")
+    k.Size = UDim2.new(0, 22, 0, 22)
+    k.Position = state and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
+    k.BackgroundColor3 = Color3.new(1,1,1)
+    k.BorderSizePixel = 0
+    k.ZIndex = 18
+    k.Parent = t
+    local kc = Instance.new("UICorner") kc.CornerRadius = UDim.new(1, 0) kc.Parent = k
+
+    local ks = Instance.new("UIStroke")
+    ks.Color = Color3.new(0, 0, 0); ks.Thickness = 0.5; ks.Transparency = 0.85
+    ks.Parent = k
+
+    t.MouseButton1Click:Connect(function()
+        state = not state
+        TweenService:Create(t, TweenInfo.new(0.25), {
+            BackgroundColor3 = state and CFG.Accent or Color3.fromRGB(40, 40, 58),
+        }):Play()
+        TweenService:Create(k, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+            Position = state and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11),
+        }):Play()
+        if callback then callback(state) end
+    end)
+    return f
+end
+
+local function Slider(parent, text, min, max, default, callback)
+    local value = default or min
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 52)
+    f.BackgroundTransparency = 1
+    f.ZIndex = 17
+    f.Parent = parent
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, -60, 0, 18)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = CFG.Text
+    l.Font = Enum.Font.GothamMedium
+    l.TextSize = 12
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.ZIndex = 17
+    l.Parent = f
+
+    local vl = Instance.new("TextLabel")
+    vl.Size = UDim2.new(0, 60, 0, 18)
+    vl.Position = UDim2.new(1, -60, 0, 0)
+    vl.BackgroundTransparency = 1
+    vl.Text = tostring(value)
+    vl.TextColor3 = CFG.Cyan
+    vl.Font = Enum.Font.GothamBold
+    vl.TextSize = 12
+    vl.ZIndex = 17
+    vl.Parent = f
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, 0, 0, 8)
+    bar.Position = UDim2.new(0, 0, 0, 30)
+    bar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    bar.BorderSizePixel = 0
+    bar.ZIndex = 17
+    bar.Parent = f
+    local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(1, 0) bc.Parent = bar
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+    fill.BackgroundColor3 = CFG.Accent
+    fill.BorderSizePixel = 0
+    fill.ZIndex = 17
+    fill.Parent = bar
+    local fc = Instance.new("UICorner") fc.CornerRadius = UDim.new(1, 0) fc.Parent = fill
+    local fg = Instance.new("UIGradient")
+    fg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CFG.Cyan),
+        ColorSequenceKeypoint.new(1, CFG.Accent2),
+    })
+    fg.Parent = fill
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 20, 0, 20)
+    knob.Position = UDim2.new((value - min) / (max - min), -10, 0.5, -10)
+    knob.BackgroundColor3 = Color3.new(1, 1, 1)
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 18
+    knob.Parent = bar
+    local kc = Instance.new("UICorner") kc.CornerRadius = UDim.new(1, 0) kc.Parent = knob
+    local ks = Instance.new("UIStroke") ks.Color = CFG.Accent ks.Thickness = 2 ks.Parent = knob
+
+    local dragging = false
+    local function upd(x)
+        local rel = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        value = math.floor(min + (max - min) * rel)
+        vl.Text = tostring(value)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        knob.Position = UDim2.new(rel, -10, 0.5, -10)
+        if callback then callback(value) end
+    end
+
+    bar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            TweenService:Create(knob, TweenInfo.new(0.15), {Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(knob.Position.X.Scale, -12, 0.5, -12)}):Play()
+            upd(i.Position.X)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            upd(i.Position.X)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            TweenService:Create(knob, TweenInfo.new(0.15), {Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(knob.Position.X.Scale, -10, 0.5, -10)}):Play()
+        end
+    end)
+    return f
+end
+
+--// ==========================================================
+--  FEATURE LOGIC
+--// ==========================================================
+local function ToggleFB(s)
+    if s then
+        Lighting.Brightness = 2.5
+        Lighting.ClockTime = 14
+        Lighting.Ambient = Color3.new(1,1,1)
+    else
+        Lighting.Brightness = 1
+        Lighting.Ambient = Color3.new(0,0,0)
+    end
+end
+
+local InstantConn
+local function ToggleInstant(s)
+    if s then
+        InstantConn = ProximityService.PromptButtonHoldBegan:Connect(function(p)
+            fireproximityprompt(p)
+        end)
+    else
+        if InstantConn then InstantConn:Disconnect() end
+    end
+end
+
+local ChamsActive = false
+local ChamsList = {}
+local Connections = {}
+local COLOR_PLAYER = Color3.fromRGB(0, 255, 0)
+local COLOR_MONSTER = Color3.fromRGB(255, 0, 0)
+local COLOR_WHITE = Color3.fromRGB(255, 255, 255)
+
+local function AddChams(model)
+    if ChamsList[model] then return end
+    ChamsList[model] = true
+    local isPlayer = Players:GetPlayerFromCharacter(model)
+    local color = isPlayer and COLOR_PLAYER or COLOR_MONSTER
+    local h = Instance.new("Highlight")
+    h.Name = "LB_Chams"
+    h.FillColor = color
+    h.FillTransparency = 0.4
+    h.OutlineColor = COLOR_WHITE
+    h.OutlineTransparency = 0
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = model
+end
+
+local function RemoveChams(model)
+    ChamsList[model] = nil
+    local h = model:FindFirstChild("LB_Chams")
+    if h then h:Destroy() end
+end
+
+local function ClearAllChams()
+    for model in pairs(ChamsList) do
+        local h = model:FindFirstChild("LB_Chams")
+        if h then h:Destroy() end
+    end
+    ChamsList = {}
+end
+
+local function IsValidTarget(model)
+    if not model:IsA("Model") then return false end
+    if model == LP.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return true end
+    if model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then return true end
+    return false
+end
+
+local function WatchPlayers()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character then AddChams(p.Character) end
+    end
+    table.insert(Connections, Players.PlayerAdded:Connect(function(p)
+        p.CharacterAdded:Connect(function(c)
+            task.wait(0.3)
+            if ChamsActive then AddChams(c) end
+        end)
+    end))
+    table.insert(Connections, Players.PlayerRemoving:Connect(function(p)
+        if p.Character then RemoveChams(p.Character) end
+    end))
+end
+
+local function WatchMonsters()
+    for _, m in pairs(Workspace:GetDescendants()) do
+        if IsValidTarget(m) then AddChams(m) end
+    end
+    table.insert(Connections, Workspace.DescendantAdded:Connect(function(d)
+        if ChamsActive and d:IsA("Model") then
+            task.delay(0.2, function()
+                if d.Parent and IsValidTarget(d) then AddChams(d) end
+            end)
+        end
+    end))
+end
+
+local function ToggleChams(s)
+    ChamsActive = s
+    if s then
+        for _, c in pairs(Connections) do c:Disconnect() end
+        Connections = {}
+        WatchPlayers()
+        WatchMonsters()
+    else
+        for _, c in pairs(Connections) do c:Disconnect() end
+        Connections = {}
+        ClearAllChams()
+    end
+end
+
+--// ===== NOCLIP (restore siêu nhanh khi tắt) =====
+local noclipConn = nil
+local noclipSaved = {}
+local noclipCharConn = nil
+
+local function RestoreNoclipFast()
+    task.spawn(function()
+        local char = LP.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local orig = noclipSaved[part]
+                    if orig ~= nil then
+                        part.CanCollide = orig
+                    else
+                        if part.Name == "HumanoidRootPart" or part.Name == "Head"
+                           or part.Name == "Torso" or part.Name == "UpperTorso"
+                           or part.Name == "LowerTorso" then
+                            part.CanCollide = true
+                        elseif part:FindFirstChildOfClass("Motor6D") == nil
+                           and part.Name ~= "Handle" then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+        noclipSaved = {}
+    end)
+end
+
+local function ToggleNoclip(s)
+    if s then
+        if noclipConn then return end
+        noclipSaved = {}
+        noclipConn = RunService.Stepped:Connect(function()
+            local char = LP.Character
+            if not char then return end
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if noclipSaved[part] == nil then
+                        noclipSaved[part] = part.CanCollide
+                    end
+                    part.CanCollide = false
+                end
+            end
+        end)
+        if noclipCharConn then noclipCharConn:Disconnect() end
+        noclipCharConn = LP.CharacterAdded:Connect(function(newChar)
+            noclipSaved = {}
+            task.wait(0.1)
+            for _, part in ipairs(newChar:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    noclipSaved[part] = part.CanCollide
+                end
+            end
+        end)
+    else
+        if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+        if noclipCharConn then noclipCharConn:Disconnect() noclipCharConn = nil end
+        RestoreNoclipFast()
+    end
+end
+
+--// ==========================================================
+--  BUILD TABS
+--// ==========================================================
+local mainPage, actMain = CreateTab("Main", "M")
+local floatPage = CreateTab("Float", "F")
+local setPage = CreateTab("Settings", "S")
+local infoPage = CreateTab("Info", "I")
+
+-- ===== MAIN =====
+Section(mainPage, "VISUAL")
+Toggle(mainPage, "Fullbright", false, ToggleFB)
+
+Section(mainPage, "INTERACTION")
+Toggle(mainPage, "Instant Prompt", false, ToggleInstant)
+
+Section(mainPage, "ESP")
+Toggle(mainPage, "Chams", false, ToggleChams)
+
+Section(mainPage, "MOVEMENT")
+Toggle(mainPage, "Noclip", false, ToggleNoclip)
+
+-- ===== FLOAT =====
+Section(floatPage, "NÚT NỔI")
+
+Toggle(floatPage, "Hiện nút nổi", true, function(v)
+    _G.LongGuiFloat.Enabled = v
+    Float.Visible = v
+end)
+
+Toggle(floatPage, "Hiệu ứng pulse", true, function(v)
+    _G.LongGuiFloat.Pulse = v
+end)
+
+Toggle(floatPage, "Hiệu ứng xoay gradient", true, function(v)
+    _G.LongGuiFloat.Rotate = v
+end)
+
+Section(floatPage, "KÍCH THƯỚC")
+Slider(floatPage, "Kích thước nút", 40, 80, 54, function(v)
+    _G.LongGuiFloat.Size = v
+    Float.Size = UDim2.new(0, v, 0, v)
+end)
+
+Section(floatPage, "MÀU SẮC")
+AuroraButton(floatPage, "Violet Aurora", function()
+    FInnerG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CFG.Accent),
+        ColorSequenceKeypoint.new(0.5, CFG.Accent2),
+        ColorSequenceKeypoint.new(1, CFG.Cyan),
+    })
+    FStroke.Color = CFG.Accent
+end, "violet")
+
+AuroraButton(floatPage, "Gold Aurora", function()
+    FInnerG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CFG.Gold),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 140, 60)),
+    })
+    FStroke.Color = CFG.Gold
+end, "gold")
+
+AuroraButton(floatPage, "Red Aurora", function()
+    FInnerG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 130)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 40, 60)),
+    })
+    FStroke.Color = Color3.fromRGB(255, 80, 90)
+end, "red")
+
+AuroraButton(floatPage, "Cyan Aurora", function()
+    FInnerG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CFG.Cyan),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 140, 220)),
+    })
+    FStroke.Color = CFG.Cyan
+end, "cyan")
+
+AuroraButton(floatPage, "Reset vị trí nút", function()
+    Float.Position = UDim2.new(0, 20, 0.5, -27)
+end, "violet")
+
+-- ===== SETTINGS =====
+Section(setPage, "KEYBIND")
+Label(setPage, "Phím ẩn/hiện giao diện")
+
+local keybindBtn = AuroraButton(setPage, "R", function()
+    keybindBtn.Text = "Press a key..."
+    _G.LongGuiListening = true
+end, "cyan")
+
+Section(setPage, "MOUSE")
+Label(setPage, "Tự unlock chuột khi mở menu")
+Toggle(setPage, "Auto Unlock Mouse", true, function(v)
+    _G.LongGuiAutoUnlockMouse = v
+    if not v then
+        SetMouseUnlocked(false)
+    elseif Main.Visible then
+        SetMouseUnlocked(true)
+    end
+end)
+
+Section(setPage, "EFFECTS")
+Label(setPage, "Bật/tắt hiệu ứng động")
+Toggle(setPage, "Hiệu ứng hố đen", true, function(v)
+    _G.LongGuiEffects.BlackHole = v
+end)
+Toggle(setPage, "Hiệu ứng sao nền", true, function(v)
+    _G.LongGuiEffects.Starfield = v
+end)
+Toggle(setPage, "Hiệu ứng chuyển động", true, function(v)
+    _G.LongGuiEffects.Animations = v
+end)
+
+-- ===== INFO =====
+Section(infoPage, "✦  LONG GUI  ✦")
+Label(infoPage, "Aurora Glass Edition  •  v5.1")
+Label(infoPage, "Fullbright • Instant Prompt • Chams • Noclip")
+
+task.wait(0.2)
+AuroraButton(infoPage, "Unload Script", function()
+    ToggleFB(false)
+    ToggleInstant(false)
+    ToggleChams(false)
+    ToggleNoclip(false)
+    SetMouseUnlocked(false)
+    SG:Destroy()
+end, "red")
+
+--// ==========================================================
+--  TRAFFIC LIGHTS
+--// ==========================================================
+trafficBtns.Red.MouseButton1Click:Connect(function()
+    HideMain()
+end)
+
+local minimized = false
+trafficBtns.Yellow.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    for _, child in pairs(Main:GetChildren()) do
+        if child ~= Header and child ~= MainCorner and child ~= MainStroke and child ~= Shadow then
+            child.Visible = not minimized
+        end
+    end
+    TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Size = minimized and UDim2.new(0, CFG.Size.X.Offset, 0, 42) or CFG.Size,
+    }):Play()
+end)
+
+local zoomed = false
+trafficBtns.Green.MouseButton1Click:Connect(function()
+    zoomed = not zoomed
+    if zoomed then
+        TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+            Size = UDim2.new(0, 900, 0, 600),
+            Position = UDim2.new(0.5, -450, 0.5, -300),
+        }):Play()
+    else
+        TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+            Size = CFG.Size,
+            Position = UDim2.new(0.5, -CFG.Size.X.Offset/2, 0.5, -CFG.Size.Y.Offset/2),
+        }):Play()
+    end
+end)
+
+--// ==========================================================
+--  FLOAT CLICK
+--// ==========================================================
+Float.MouseButton1Click:Connect(function()
+    if Main.Visible then
+        HideMain()
+    else
+        ShowMain()
+    end
+end)
+
+--// ==========================================================
+--  KEYBIND
+--// ==========================================================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+    if _G.LongGuiListening then
+        _G.LongGuiListening = false
+        _G.LongGuiKeybind = input.KeyCode
+        keybindBtn.Text = input.KeyCode.Name
+        KBHint.Text = "Press " .. input.KeyCode.Name
+        return
+    end
+
+    if input.KeyCode == _G.LongGuiKeybind then
+        if Main.Visible then
+            HideMain()
+        else
+            ShowMain()
+        end
+    end
+end)
+
+--// ==========================================================
+--  DRAG
+--// ==========================================================
+do
+    local dragging, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local d = input.Position - dragStart
+            Main.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+--// ==========================================================
+--  ENTRANCE
+--// ==========================================================
+actMain()
+
+Main.Size = UDim2.new(0, 0, 0, 0)
+Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = CFG.Size,
+    Position = UDim2.new(0.5, -CFG.Size.X.Offset/2, 0.5, -CFG.Size.Y.Offset/2),
+}):Play()
+
+-- Unlock chuột lần đầu nếu bật
+if _G.LongGuiAutoUnlockMouse then
+    SetMouseUnlocked(true)
+end
+
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Long Gui v5.1",
+        Text = "✦ Aurora Glass Edition loaded!",
+        Duration = 5,
+    })
+end)
+
+print("[Long Gui v5.1] Loaded! Aurora Glass Edition + Mouse Unlock + Fast Noclip Reset.")
