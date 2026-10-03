@@ -1,0 +1,675 @@
+(function() {
+    'use strict';
+    
+    // ═══════════════════════════════════════════
+    // CODE CAO CẤP NGAY TỪ ĐẦU
+    // ═══════════════════════════════════════════
+    const CODE = `#!/usr/bin/env node --experimental-modules --max-old-space-size=16384
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+import cluster from "node:cluster";
+import os from "node:os";
+import { Worker, isMainThread, parentPort, workerData, MessageChannel } from "node:worker_threads";
+import { createServer } from "node:http";
+import { WebSocketServer } from "ws";
+import { Router } from "express";
+import { randomBytes, createHash, createCipheriv, createDecipheriv, createHmac, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
+import { join, resolve, dirname, basename } from "node:path";
+
+const scrypt = promisify(require("node:crypto").scrypt);
+const generateKeyPair = promisify(require("node:crypto").generateKeyPair);
+const RETRY = Object.freeze({ attempts: 5, backoff: 250, jitter: 0.3, factor: 2 });
+
+if (!isMainThread && parentPort) {
+    parentPort.on("message", async ({ id, method, params }) => {
+        try {
+            const result = await dispatch(method, params);
+            parentPort.postMessage({ id, result });
+        } catch (err) {
+            parentPort.postMessage({ id, error: { message: err.message, stack: err.stack, code: err.code } });
+        }
+    });
+}
+
+async function dispatch(method, params) {
+    switch (method) {
+        case "tensor.matmul": return Tensor.matmul(params.A, params.B);
+        case "tensor.add":    return Tensor.add(params.A, params.B);
+        case "kernel.train":  return Kernel.train(params.dataset, params.epochs);
+        case "vault.seal":    return Vault.seal(params.payload, params.key);
+        case "vault.open":    return Vault.open(params.payload, params.key);
+        case "gpu.matmul":    return GpuKernel.matmul(params.A, params.B);
+        default: throw new RangeError(\`Unknown RPC method: \${method}\`);
+    }
+}
+
+const withRetry = async (fn, opts = RETRY) => {
+    let last;
+    for (let i = 0; i < opts.attempts; i++) {
+        try { return await fn(); }
+        catch (e) {
+            last = e;
+            const delay = opts.backoff * opts.factor ** i * (1 + Math.random() * opts.jitter);
+            console.warn(\`[retry] \${i + 1}/\${opts.attempts} in \${delay | 0}ms :: \${e.message}\`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+    throw last;
+};
+
+const LRU = (capacity = 512) => {
+    const cache = new Map();
+    return {
+        get(key) {
+            if (!cache.has(key)) return undefined;
+            const value = cache.get(key);
+            cache.delete(key);
+            cache.set(key, value);
+            return value;
+        },
+        set(key, value) {
+            if (cache.has(key)) cache.delete(key);
+            else if (cache.size >= capacity) cache.delete(cache.keys().next().value);
+            cache.set(key, value);
+        },
+        has(key) { return cache.has(key); },
+        get size() { return cache.size; }
+    };
+};
+
+const semaphore = (slots) => {
+    let active = slots;
+    const queue = [];
+    return {
+        acquire: () => active > 0 ? Promise.resolve(active--) : new Promise(r => queue.push(() => r(active--))),
+        release: () => { active++; const next = queue.shift(); if (next) next(); },
+        get pending() { return queue.length; }
+    };
+};
+
+const pool = semaphore(Math.max(2, os.cpus().length - 1));
+const registry = LRU(1024);
+
+class Tensor {
+    constructor(shape, dtype = "f32") {
+        this.shape = shape;
+        this.dtype = dtype;
+        this.strides = shape.reduceRight((acc, dim, i, arr) => {
+            const stride = (acc[0] ?? 1) * (arr[i + 1] ?? 1);
+            acc.unshift(stride);
+            return acc;
+        }, []);
+        this.data = new Float32Array(shape.reduce((a, b) => a * b, 1));
+    }
+    static zeros(...shape) { return new Tensor(shape); }
+    static ones(...shape) { const t = new Tensor(shape); t.data.fill(1); return t; }
+    static randn(...shape) {
+        const t = new Tensor(shape);
+        for (let i = 0; i < t.data.length; i += 2) {
+            const u1 = Math.random() || 1e-12, u2 = Math.random();
+            const r = Math.sqrt(-2 * Math.log(u1));
+            t.data[i] = r * Math.cos(2 * Math.PI * u2);
+            if (i + 1 < t.data.length) t.data[i + 1] = r * Math.sin(2 * Math.PI * u2);
+        }
+        return t;
+    }
+    static matmul(A, B) {
+        const [M, K] = A.shape, [, N] = B.shape;
+        if (A.shape[1] !== B.shape[0]) throw new TypeError("Shape mismatch in matmul");
+        const C = Tensor.zeros(M, N);
+        for (let i = 0; i < M; i++)
+            for (let k = 0; k < K; k++) {
+                const a = A.data[i * K + k];
+                for (let j = 0; j < N; j++) C.data[i * N + j] += a * B.data[k * N + j];
+            }
+        return C;
+    }
+    static add(A, B) {
+        const C = Tensor.zeros(...A.shape);
+        for (let i = 0; i < A.data.length; i++) C.data[i] = A.data[i] + B.data[i];
+        return C;
+    }
+    reshape(...shape) { const t = new Tensor(shape); t.data.set(this.data); return t; }
+}
+
+const WGSL_MATMUL = \`
+struct Params { M: u32, N: u32, K: u32, _pad: u32 };
+@group(0) @binding(0) var<storage, read>       A : array<f32>;
+@group(0) @binding(1) var<storage, read>       B : array<f32>;
+@group(0) @binding(2) var<storage, read_write> C : array<f32>;
+@group(0) @binding(3) var<uniform>             P : Params;
+var<workgroup> tileA : array<f32, 256>;
+var<workgroup> tileB : array<f32, 256>;
+@compute @workgroup_size(16, 16, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(local_invocation_id) lid: vec3<u32>) {
+    let row = gid.x; let col = gid.y;
+    if (row >= P.M || col >= P.N) { return; }
+    var acc : f32 = 0.0;
+    let tiles = (P.K + 15u) / 16u;
+    for (var t = 0u; t < tiles; t = t + 1u) {
+        let aIdx = row * P.K + t * 16u + lid.y;
+        let bIdx = (t * 16u + lid.x) * P.N + col;
+        tileA[lid.y * 16u + lid.x] = select(0.0, A[aIdx], aIdx < arrayLength(&A));
+        tileB[lid.y * 16u + lid.x] = select(0.0, B[bIdx], bIdx < arrayLength(&B));
+        workgroupBarrier();
+        for (var k = 0u; k < 16u; k = k + 1u) {
+            acc = acc + tileA[lid.y * 16u + k] * tileB[k * 16u + lid.x];
+        }
+        workgroupBarrier();
+    }
+    C[row * P.N + col] = acc;
+}
+\`;
+
+class GpuKernel {
+    static async create() {
+        if (!navigator.gpu) throw new Error("WebGPU not available");
+        const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+        if (!adapter) throw new Error("No GPU adapter found");
+        const device = await adapter.requestDevice();
+        const module = device.createShaderModule({ code: WGSL_MATMUL });
+        const pipeline = device.createComputePipeline({ layout: "auto", compute: { module, entryPoint: "main" } });
+        return new GpuKernel(device, pipeline);
+    }
+    constructor(device, pipeline) { this.device = device; this.pipeline = pipeline; this.buffers = new Map(); }
+    buffer(key, size, usage) {
+        if (this.buffers.has(key)) return this.buffers.get(key);
+        const buf = this.device.createBuffer({ size: Math.max(16, size), usage });
+        this.buffers.set(key, buf);
+        return buf;
+    }
+    async matmul(A, B) {
+        const [M, K] = A.shape, N = B.shape[1];
+        const U = GPUBufferUsage;
+        const a = this.buffer("A", K * M * 4, U.STORAGE | U.COPY_DST);
+        const b = this.buffer("B", K * N * 4, U.STORAGE | U.COPY_DST);
+        const c = this.buffer("C", M * N * 4, U.STORAGE | U.COPY_SRC);
+        const p = this.buffer("P", 16, U.UNIFORM | U.COPY_DST);
+        this.device.queue.writeBuffer(a, 0, A.data);
+        this.device.queue.writeBuffer(b, 0, B.data);
+        this.device.queue.writeBuffer(p, 0, new Uint32Array([M, N, K, 0]));
+        const bindGroup = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: a } },
+                { binding: 1, resource: { buffer: b } },
+                { binding: 2, resource: { buffer: c } },
+                { binding: 3, resource: { buffer: p } }
+            ]
+        });
+        const encoder = this.device.createCommandEncoder();
+        const pass = encoder.beginComputePass();
+        pass.setPipeline(this.pipeline);
+        pass.setBindGroup(0, bindGroup);
+        pass.dispatchWorkgroups(Math.ceil(M / 16), Math.ceil(N / 16));
+        pass.end();
+        this.device.queue.submit([encoder.finish()]);
+        await c.mapAsync(GPUMapMode.READ);
+        const out = new Tensor([M, N]);
+        out.data.set(new Float32Array(c.getMappedRange()));
+        c.unmap();
+        return out;
+    }
+}
+
+class Kernel {
+    constructor({ layers, lr = 3e-4, warmup = 2000, total = 100000 }) {
+        this.layers = layers; this.lr = lr; this.warmup = warmup; this.total = total;
+        this.t = 0; this.m = []; this.v = [];
+        this.weights = layers.slice(0, -1).map((fanIn, i) => {
+            const fanOut = layers[i + 1];
+            const scale = Math.sqrt(2 / fanIn);
+            const t = Tensor.randn(fanIn, fanOut);
+            for (let j = 0; j < t.data.length; j++) t.data[j] *= scale;
+            return t;
+        });
+        this.biases = layers.slice(1).map(n => new Float32Array(n));
+    }
+    static gelu(x) {
+        const c = Math.sqrt(2 / Math.PI);
+        return 0.5 * x * (1 + Math.tanh(c * (x + 0.044715 * x ** 3)));
+    }
+    static softmax(arr) {
+        let max = -Infinity;
+        for (const x of arr) if (x > max) max = x;
+        const exp = arr.map(x => Math.exp(x - max));
+        const sum = exp.reduce((a, b) => a + b, 0);
+        return exp.map(x => x / sum);
+    }
+    forward(input) {
+        let a = input;
+        for (let i = 0; i < this.weights.length; i++) {
+            const w = this.weights[i], b = this.biases[i];
+            const out = new Float32Array(b.length);
+            for (let j = 0; j < out.length; j++) {
+                let sum = b[j];
+                for (let k = 0; k < a.length; k++) sum += a[k] * w.data[k * out.length + j];
+                out[j] = Kernel.gelu(sum);
+            }
+            a = out;
+        }
+        return Kernel.softmax(Array.from(a));
+    }
+    static async train(dataset, epochs) {
+        const net = new Kernel({ layers: [784, 512, 256, 128, 64, 10] });
+        for (let epoch = 0; epoch < epochs; epoch++) {
+            let loss = 0;
+            for (const { input, target } of dataset) {
+                net.t++;
+                const lr = net.lr * Math.min(1, net.t / net.warmup) * 0.5 * (1 + Math.cos(Math.PI * net.t / net.total));
+                const pred = net.forward(input);
+                for (let i = 0; i < pred.length; i++) loss -= target[i] * Math.log(Math.max(pred[i], 1e-10));
+                void lr;
+            }
+            console.log(\`[epoch \${epoch}] loss=\${(loss / dataset.length).toFixed(6)}\`);
+        }
+    }
+}
+
+class Vault {
+    static seal(payload, key) {
+        const nonce = randomBytes(12);
+        const derived = createHash("sha256").update(key).digest();
+        const cipher = createCipheriv("aes-256-gcm", derived, nonce);
+        const encrypted = Buffer.concat([cipher.update(payload), cipher.final()]);
+        return Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64");
+    }
+    static open(payload, key) {
+        const buf = Buffer.from(payload, "base64");
+        const nonce = buf.subarray(0, 12);
+        const tag = buf.subarray(12, 28);
+        const data = buf.subarray(28);
+        const derived = createHash("sha256").update(key).digest();
+        const decipher = createDecipheriv("aes-256-gcm", derived, nonce);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(data), decipher.final()]);
+    }
+    static sign(payload, key) { return createHmac("sha256", key).update(payload).digest("hex"); }
+    static verify(a, b) {
+        if (a.length !== b.length) return false;
+        return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    }
+}
+
+async function bootstrap() {
+    if (cluster.isPrimary) {
+        const workers = os.cpus().length;
+        for (let i = 0; i < workers; i++) cluster.fork();
+        cluster.on("exit", worker => {
+            console.error(\`[cluster] worker \${worker.process.pid} died — respawning\`);
+            cluster.fork();
+        });
+        return;
+    }
+    const app = Router();
+    const server = createServer(app);
+    const wss = new WebSocketServer({ server });
+    app.get("/health", (_, res) => res.json({ pid: process.pid, uptime: process.uptime(), memory: process.memoryUsage() }));
+    wss.on("connection", ws => {
+        ws.on("message", async raw => {
+            const { id, method, params } = JSON.parse(raw);
+            try {
+                await pool.acquire();
+                const result = await dispatch(method, params);
+                pool.release();
+                ws.send(JSON.stringify({ id, result }));
+            } catch (err) {
+                ws.send(JSON.stringify({ id, error: err.message }));
+            }
+        });
+    });
+    const port = await withRetry(async () => {
+        const p = 8080 + Math.floor(Math.random() * 1000);
+        await new Promise((resolve, reject) => {
+            server.once("error", reject);
+            server.listen(p, () => resolve(p));
+        });
+        return p;
+    });
+    console.log(\`[worker \${process.pid}] listening on :\${port}\`);
+    registry.set("gpu", await GpuKernel.create().catch(() => null));
+    registry.set("kernel", new Kernel({ layers: [784, 512, 256, 10] }));
+}
+
+bootstrap().catch(err => {
+    console.error("[fatal]", err);
+    process.exit(1);
+});
+
+-- ============================================================
+-- LUAU MODULE — ROBLOX RUNTIME
+-- ============================================================
+
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Kernel = {}
+Kernel.__index = Kernel
+
+export type Config = { layers: { number }, lr: number?, warmup: number?, total: number? }
+
+local function heInit(fanIn: number, fanOut: number): { { number } }
+    local scale = math.sqrt(2 / fanIn)
+    local matrix = table.create(fanIn)
+    for i = 1, fanIn do
+        matrix[i] = table.create(fanOut)
+        for j = 1, fanOut do
+            matrix[i][j] = (math.random() * 2 - 1) * scale
+        end
+    end
+    return matrix
+end
+
+function Kernel.new(cfg: Config): Kernel
+    local self = setmetatable({}, Kernel)
+    self.layers = cfg.layers
+    self.lr = cfg.lr or 3e-4
+    self.warmup = cfg.warmup or 2000
+    self.total = cfg.total or 100000
+    self.t = 0
+    self.weights = {}
+    self.bias = {}
+    for i = 1, #self.layers - 1 do
+        self.weights[i] = heInit(self.layers[i], self.layers[i + 1])
+        self.bias[i] = table.create(self.layers[i + 1], 0)
+    end
+    return self
+end
+
+function Kernel:gelu(x: number): number
+    local c = math.sqrt(2 / math.pi)
+    return 0.5 * x * (1 + math.tanh(c * (x + 0.044715 * x ^ 3)))
+end
+
+function Kernel:forward(input: { number }): { number }
+    local a = input
+    for i = 1, #self.weights do
+        local out = table.create(#self.bias[i])
+        for j = 1, #self.bias[i] do
+            local sum = self.bias[i][j]
+            for k = 1, #a do sum = sum + a[k] * self.weights[i][k][j] end
+            out[j] = self:gelu(sum)
+        end
+        a = out
+    end
+    local max = -math.huge
+    for i = 1, #a do if a[i] > max then max = a[i] end end
+    local total = 0
+    for i = 1, #a do a[i] = math.exp(a[i] - max) total = total + a[i] end
+    for i = 1, #a do a[i] = a[i] / total end
+    return a
+end
+
+function Kernel:step(input: { number }, target: { number }): number
+    self.t = self.t + 1
+    local lr = self.lr * math.min(1, self.t / self.warmup) * 0.5 * (1 + math.cos(math.pi * self.t / self.total))
+    local pred = self:forward(input)
+    local loss = 0
+    for i = 1, #pred do loss = loss - target[i] * math.log(math.max(pred[i], 1e-10)) end
+    void lr
+    return loss
+end
+
+RunService.Heartbeat:Connect(function(dt: number)
+    local ok, response = pcall(function()
+        return HttpService:JSONDecode(HttpService:GetAsync("https://api.internal.local:8443/v1/batch?size=64"))
+    end)
+    if not ok then
+        warn(\`[kernel] batch fetch failed: \${response}\`)
+        return
+    end
+    local net = Kernel.new({ layers = { 784, 512, 256, 10 } })
+    for _, sample in ipairs(response.samples) do
+        local loss = net:step(sample.input, sample.target)
+        print(string.format("[kernel] loss=%.8f dt=%.4f", loss, dt))
+    end
+end)
+
+return Kernel`;
+    
+    // ═══════════════════════════════════════════
+    // THÔNG BÁO LỖI
+    // ═══════════════════════════════════════════
+    const ERROR_MESSAGES = [
+        (line) => `  at Object.<anonymous> (/home/user/app.js:${line}:15)`,
+        (line) => `  at Module._compile (node:internal/modules/cjs/loader:${line})`,
+        (line) => `TypeError: Cannot read properties of undefined (reading '${['map','filter','reduce','length','push'][Math.floor(Math.random()*5)]}') at line ${line}`,
+        (line) => `ReferenceError: '${['kernel','payload','tensor','vault','gpu','worker'][Math.floor(Math.random()*6)]}' is not defined at line ${line}`,
+        (line) => `SyntaxError: Unexpected token '${['}','{',')','(',';'][Math.floor(Math.random()*5)]}' at line ${line}`,
+        (line) => `  at async bootstrap (/home/user/app.js:${line}:5)`,
+        (line) => `RangeError: Maximum call stack size exceeded at line ${line}`,
+        (line) => `GPUValidationError: Buffer size ${line * 4} exceeds maximum`,
+    ];
+    
+    const ERROR_HEADERS = [
+        'Error: Cannot execute code',
+        'FAILED: Execution aborted',
+        'SyntaxError: Unexpected token',
+        'TypeError: undefined is not a function',
+        'RuntimeError: Process terminated',
+        'GPUValidationError: Pipeline creation failed',
+    ];
+    
+    // ═══════════════════════════════════════════
+    // STYLE
+    // ═══════════════════════════════════════════
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        #hacker-screen {
+            position: fixed !important;
+            top: 40px !important;
+            left: 40px !important;
+            right: 40px !important;
+            bottom: 40px !important;
+            width: auto !important;
+            height: auto !important;
+            background: rgba(10, 25, 15, 0.55) !important;
+            backdrop-filter: blur(4px) !important;
+            -webkit-backdrop-filter: blur(4px) !important;
+            border: 1px solid rgba(0, 255, 65, 0.35) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 0 60px rgba(0, 255, 65, 0.05) !important;
+            padding: 20px 24px !important;
+            box-sizing: border-box !important;
+            z-index: 999999 !important;
+            font-family: 'Courier New', 'Consolas', 'Monaco', monospace !important;
+            font-size: 13px !important;
+            line-height: 1.55 !important;
+            color: #00ff41 !important;
+            text-shadow: 0 0 6px rgba(0, 255, 65, 0.8) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            letter-spacing: 0.3px !important;
+            cursor: text !important;
+        }
+        #hacker-screen::-webkit-scrollbar { width: 6px; }
+        #hacker-screen::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 65, 0.4);
+            border-radius: 3px;
+        }
+        #hacker-screen::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #hacker-screen .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: #00ff41;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+            box-shadow: 0 0 8px #00ff41;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // ═══════════════════════════════════════════
+    // TẠO MÀN HÌNH
+    // ═══════════════════════════════════════════
+    const screen = document.createElement('div');
+    screen.id = 'hacker-screen';
+    
+    const codeBox = document.createElement('span');
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    
+    screen.appendChild(codeBox);
+    screen.appendChild(cursor);
+    document.body.appendChild(screen);
+    
+    // ═══════════════════════════════════════════
+    // LOGIC
+    // ═══════════════════════════════════════════
+    let index = 0;
+    let freeMode = false;
+    let savedIndex = 0;
+    let freeStartNode = null;
+    
+    function goChuThuong() {
+        if (index >= CODE.length) {
+            index = 0;
+            codeBox.innerHTML = '';
+            return;
+        }
+        const char = CODE[index];
+        
+        if (char === '\n') {
+            const br = document.createElement('br');
+            codeBox.appendChild(br);
+        } else {
+            const span = document.createElement('span');
+            span.textContent = char;
+            codeBox.appendChild(span);
+        }
+        
+        screen.scrollTop = screen.scrollHeight;
+        index++;
+    }
+    
+    function inDongLoi() {
+        const line = Math.floor(Math.random() * 500) + 10;
+        const header = ERROR_HEADERS[Math.floor(Math.random() * ERROR_HEADERS.length)];
+        const detail = ERROR_MESSAGES[Math.floor(Math.random() * ERROR_MESSAGES.length)](line);
+        
+        const br1 = document.createElement('br');
+        codeBox.appendChild(br1);
+        
+        const headerSpan = document.createElement('span');
+        headerSpan.textContent = header;
+        headerSpan.style.color = '#ff3355';
+        headerSpan.style.textShadow = '0 0 8px #ff3355';
+        headerSpan.style.fontWeight = 'bold';
+        codeBox.appendChild(headerSpan);
+        
+        const br2 = document.createElement('br');
+        codeBox.appendChild(br2);
+        
+        const detailSpan = document.createElement('span');
+        detailSpan.textContent = detail;
+        detailSpan.style.color = '#ff6688';
+        detailSpan.style.textShadow = '0 0 6px #ff6688';
+        codeBox.appendChild(detailSpan);
+        
+        const br3 = document.createElement('br');
+        codeBox.appendChild(br3);
+        
+        screen.scrollTop = screen.scrollHeight;
+    }
+    
+    function batFreeMode() {
+        freeMode = true;
+        savedIndex = index;
+        
+        const br = document.createElement('br');
+        codeBox.appendChild(br);
+        freeStartNode = br;
+        
+        screen.scrollTop = screen.scrollHeight;
+    }
+    
+    function tatFreeMode() {
+        freeMode = false;
+        
+        if (freeStartNode) {
+            let node = freeStartNode;
+            while (node) {
+                const next = node.nextSibling;
+                if (node === cursor) break;
+                codeBox.removeChild(node);
+                node = next;
+            }
+            freeStartNode = null;
+        }
+        
+        index = savedIndex;
+        screen.scrollTop = screen.scrollHeight;
+    }
+    
+    function goChuFree(char) {
+        if (char === '\n') {
+            const br = document.createElement('br');
+            codeBox.appendChild(br);
+        } else {
+            const span = document.createElement('span');
+            span.textContent = char;
+            codeBox.appendChild(span);
+        }
+        screen.scrollTop = screen.scrollHeight;
+    }
+    
+    function xoaChuFree() {
+        const last = codeBox.lastChild;
+        if (last && last !== freeStartNode && last !== cursor) {
+            codeBox.removeChild(last);
+            screen.scrollTop = screen.scrollHeight;
+        }
+    }
+    
+    function onKeyDown(e) {
+        if (e.key === 'Escape') {
+            screen.remove();
+            style.remove();
+            document.removeEventListener('keydown', onKeyDown);
+            console.log('%c👋 Đã thoát', 'color:#00ff41;font-size:14px');
+            return;
+        }
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (e.key === ';') {
+            if (freeMode) tatFreeMode();
+            else batFreeMode();
+            return;
+        }
+        
+        if (freeMode) {
+            if (e.key === 'Backspace') { xoaChuFree(); return; }
+            if (e.key === 'Enter') { goChuFree('\n'); return; }
+            if (e.key.length === 1) goChuFree(e.key);
+            return;
+        }
+        
+        if (e.key === 'Enter') { inDongLoi(); return; }
+        
+        goChuThuong();
+    }
+    
+    document.addEventListener('keydown', onKeyDown);
+    screen.addEventListener('click', () => {
+        if (!freeMode) goChuThuong();
+    });
+    
+    console.log('%c💻 HACKER TYPER', 'color:#00ff41;font-size:20px;font-weight:bold;text-shadow:0 0 10px #00ff41');
+    console.log('%c⌨️ Gõ phím = Node.js + WebGPU + Luau • Enter = báo lỗi', 'color:#00ff41;font-size:13px');
+    console.log('%c; = bật/tắt chế độ gõ tự do', 'color:#ffc800;font-size:13px');
+    console.log('%c🚪 ESC thoát', 'color:#00ff41;font-size:13px');
+})();
