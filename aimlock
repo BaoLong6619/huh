@@ -1,0 +1,277 @@
+--aimbot by long béo vl
+
+local lp = game:GetService("Players").LocalPlayer
+local pgui = lp:WaitForChild("PlayerGui")
+local rs = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local camera = workspace.CurrentCamera
+
+-- 1. KHỞI TẠO (CHỐNG RESET)
+if pgui:FindFirstChild("LongBeo_V17_Superior") then pgui.LongBeo_V17_Superior:Destroy() end
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "LongBeo_V17_Superior"
+sg.Parent = pgui
+sg.DisplayOrder = 2147483647
+sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = true
+
+local Config = {
+    Aimbot = true,
+    CheckWall = true,
+    TargetPart = "Head",
+    FOV = 400,
+    ShowFOV = false,
+    Smoothness = 3.5,
+    AimKey = Enum.UserInputType.MouseButton2,
+    EspHighlight = false,
+    EspPlayer = false,
+    EspWeapon = false,
+    MainColor = Color3.fromRGB(0, 150, 255),
+    ShowAimShortcut = false,
+    ShowEspShortcut = false
+}
+
+-- HÀM KÉO THẢ
+local function makeDraggable(obj)
+    local dragging, dragStart, startPos
+    obj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = obj.Position
+        end
+    end)
+    uis.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    obj.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    end)
+end
+
+-- 2. GIAO DIỆN CHÍNH
+local main = Instance.new("Frame", sg)
+main.Size = UDim2.new(0, 380, 0, 450)
+main.Position = UDim2.new(0.5, -190, 0.5, -225)
+main.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
+main.BorderSizePixel = 2; main.BorderColor3 = Config.MainColor
+main.Visible = false
+makeDraggable(main)
+
+local pages = {}
+local function createPage(name, visible)
+    local p = Instance.new("ScrollingFrame", main)
+    p.Size = UDim2.new(1, -20, 1, -80); p.Position = UDim2.new(0, 10, 0, 70)
+    p.BackgroundTransparency = 1; p.Visible = visible; p.ScrollBarThickness = 2
+    p.CanvasSize = UDim2.new(0, 0, 0, 600)
+    Instance.new("UIListLayout", p).Padding = UDim.new(0, 6)
+    pages[name] = p
+    return p
+end
+
+local tabContainer = Instance.new("Frame", main)
+tabContainer.Size = UDim2.new(1, 0, 0, 45); tabContainer.BackgroundColor3 = Color3.fromRGB(225, 225, 225)
+
+local function makeTab(name, x, pName)
+    local b = Instance.new("TextButton", tabContainer)
+    b.Size = UDim2.new(0.333, 0, 1, 0); b.Position = UDim2.new(x, 0, 0, 0); b.Text = name
+    b.BackgroundColor3 = Color3.fromRGB(240, 240, 240); b.Font = Enum.Font.SourceSansBold; b.TextSize = 14
+    b.MouseButton1Click:Connect(function() for k, v in pairs(pages) do v.Visible = (k == pName) end end)
+end
+makeTab("AIM", 0, "AIM"); makeTab("ESP", 0.333, "ESP"); makeTab("NÚT LẺ", 0.666, "SHORT")
+createPage("AIM", true); createPage("ESP", false); createPage("SHORT", false)
+
+-- 3. NÚT LẺ ĐỒNG BỘ
+local qAim = Instance.new("TextButton", sg); qAim.Size = UDim2.new(0, 120, 0, 40); qAim.Position = UDim2.new(0.85, 0, 0.4, 0); qAim.BackgroundColor3 = Color3.new(1,1,1); qAim.BorderSizePixel = 2; qAim.Visible = false; qAim.Font = Enum.Font.SourceSansBold; makeDraggable(qAim)
+local qEsp = Instance.new("TextButton", sg); qEsp.Size = UDim2.new(0, 120, 0, 40); qEsp.Position = UDim2.new(0.85, 0, 0.48, 0); qEsp.BackgroundColor3 = Color3.new(1,1,1); qEsp.BorderSizePixel = 2; qEsp.Visible = false; qEsp.Font = Enum.Font.SourceSansBold; makeDraggable(qEsp)
+
+local function updateShortcuts()
+    qAim.Text = "long béo AIM: " .. (Config.Aimbot and "BẬT" or "TẮT")
+    qAim.TextColor3 = Config.Aimbot and Config.MainColor or Color3.fromRGB(200, 0, 0)
+    qAim.BorderColor3 = qAim.TextColor3
+    qEsp.Text = "long béo ESP: " .. (Config.EspHighlight and "BẬT" or "TẮT")
+    qEsp.TextColor3 = Config.EspHighlight and Config.MainColor or Color3.fromRGB(200, 0, 0)
+    qEsp.BorderColor3 = qEsp.TextColor3
+end
+qAim.MouseButton1Click:Connect(function() Config.Aimbot = not Config.Aimbot; updateShortcuts() end)
+qEsp.MouseButton1Click:Connect(function() Config.EspHighlight = not Config.EspHighlight; updateShortcuts() end)
+
+-- 4. HÀM TẠO NÚT CÔNG TẮC
+local function createToggle(name, parent, configKey, callback)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(1, -5, 0, 38); btn.BackgroundColor3 = Color3.fromRGB(235, 235, 235); btn.Font = Enum.Font.SourceSansBold; btn.TextSize = 16
+    rs.RenderStepped:Connect(function()
+        btn.Text = name .. (Config[configKey] and ": BẬT" or ": TẮT")
+        btn.TextColor3 = Config[configKey] and Config.MainColor or Color3.fromRGB(180, 0, 0)
+        updateShortcuts()
+    end)
+    btn.MouseButton1Click:Connect(function() Config[configKey] = not Config[configKey]; if callback then callback(Config[configKey]) end end)
+end
+
+-- TAB AIM CẬP NHẬT
+createToggle("BẬT AIMBOT 100%", pages["AIM"], "Aimbot")
+createToggle("CHECK VẬT CẢN (RAYCAST)", pages["AIM"], "CheckWall")
+
+-- Chọn bộ phận trong AIM
+local partBtn = Instance.new("TextButton", pages["AIM"])
+partBtn.Size = UDim2.new(1, -5, 0, 40); partBtn.Text = "CHỌN VỊ TRÍ AIM [ ĐẦU ]"; partBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); partBtn.Font = Enum.Font.SourceSansBold
+local partList = Instance.new("Frame", pages["AIM"]); partList.Size = UDim2.new(1, -5, 0, 140); partList.Visible = false; partList.BackgroundColor3 = Color3.fromRGB(255, 255, 255); Instance.new("UIListLayout", partList)
+local partData = {Head = "ĐẦU", HumanoidRootPart = "THÂN", ["Left Arm"] = "TAY TRÁI", ["Right Arm"] = "TAY PHẢI", ["Left Leg"] = "CHÂN TRÁI", ["Right Leg"] = "CHÂN PHẢI"}
+
+-- HÀM ĐỔI BỘ PHẬN AIM (dùng chung cho cả menu và phím B)
+local function SetTargetPart(partId)
+    Config.TargetPart = partId
+    local label = partData[partId] or partId
+    partBtn.Text = "CHỌN VỊ TRÍ AIM [ " .. label .. " ]"
+end
+
+for id, label in pairs(partData) do
+    local b = Instance.new("TextButton", partList)
+    b.Size = UDim2.new(1, 0, 0, 23); b.Text = label; b.BackgroundColor3 = Color3.fromRGB(250, 250, 250); b.Font = Enum.Font.SourceSans
+    b.MouseButton1Click:Connect(function()
+        SetTargetPart(id)
+        partList.Visible = false
+    end)
+end
+partBtn.MouseButton1Click:Connect(function() partList.Visible = not partList.Visible end)
+
+createToggle("HIỆN VÒNG AIM (POV)", pages["AIM"], "ShowFOV")
+
+-- Chỉnh kích thước FOV
+local fovLab = Instance.new("TextLabel", pages["AIM"]); fovLab.Size = UDim2.new(1, 0, 0, 25); fovLab.BackgroundTransparency = 1; fovLab.Font = Enum.Font.SourceSansBold; rs.RenderStepped:Connect(function() fovLab.Text = "KÍCH THƯỚC VÒNG: " .. math.floor(Config.FOV) end)
+local fovSlider = Instance.new("Frame", pages["AIM"]); fovSlider.Size = UDim2.new(1, -20, 0, 10); fovSlider.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+local fovKnob = Instance.new("TextButton", fovSlider); fovKnob.Size = UDim2.new(0, 20, 0, 20); fovKnob.AnchorPoint = Vector2.new(0.5, 0.5); fovKnob.Position = UDim2.new(0.636, 0, 0.5, 0); fovKnob.Text = ""
+fovKnob.MouseButton1Down:Connect(function()
+    local move; move = uis.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local p = math.clamp((input.Position.X - fovSlider.AbsolutePosition.X) / fovSlider.AbsoluteSize.X, 0, 1)
+            fovKnob.Position = UDim2.new(p, 0, 0.5, 0); Config.FOV = 50 + (550 * p)
+        end
+    end)
+    uis.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then move:Disconnect() end end)
+end)
+
+-- Chỉnh độ mượt (Smoothness)
+local smLab = Instance.new("TextLabel", pages["AIM"]); smLab.Size = UDim2.new(1, 0, 0, 25); smLab.BackgroundTransparency = 1; smLab.Font = Enum.Font.SourceSansBold; rs.RenderStepped:Connect(function() smLab.Text = "ĐỘ MƯỢT: " .. string.format("%.1f", Config.Smoothness) end)
+local smSlider = Instance.new("Frame", pages["AIM"]); smSlider.Size = UDim2.new(1, -20, 0, 10); smSlider.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+local smKnob = Instance.new("TextButton", smSlider); smKnob.Size = UDim2.new(0, 20, 0, 20); smKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+local function smToPos(v) return math.clamp((v - 1) / 19, 0, 1) end
+smKnob.Position = UDim2.new(smToPos(Config.Smoothness), 0, 0.5, 0); smKnob.Text = ""
+smKnob.MouseButton1Down:Connect(function()
+    local move; move = uis.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            local p = math.clamp((input.Position.X - smSlider.AbsolutePosition.X) / smSlider.AbsoluteSize.X, 0, 1)
+            smKnob.Position = UDim2.new(p, 0, 0.5, 0)
+            Config.Smoothness = 1 + (19 * p)
+        end
+    end)
+    uis.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then move:Disconnect() end end)
+end)
+
+-- TAB ESP & NÚT LẺ
+createToggle("SOI SÁNG (HIGHLIGHT)", pages["ESP"], "EspHighlight")
+createToggle("HIỆN TÊN NGƯỜI", pages["ESP"], "EspPlayer")
+createToggle("CHECK ĐỒ ĐANG CẦM", pages["ESP"], "EspWeapon")
+createToggle("TRÍCH NÚT AIM", pages["SHORT"], "ShowAimShortcut", function(v) qAim.Visible = v end)
+createToggle("TRÍCH NÚT ESP", pages["SHORT"], "ShowEspShortcut", function(v) qEsp.Visible = v end)
+
+-- 5. CORE LOGIC
+local fovCircle = Instance.new("Frame", sg); fovCircle.AnchorPoint = Vector2.new(0.5, 0.5); fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0); fovCircle.BackgroundTransparency = 1; local stroke = Instance.new("UIStroke", fovCircle); stroke.Color = Config.MainColor; stroke.Thickness = 2; Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1, 0)
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
+
+rs.RenderStepped:Connect(function()
+    fovCircle.Visible = Config.ShowFOV; fovCircle.Size = UDim2.new(0, Config.FOV * 2, 0, Config.FOV * 2)
+    fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+    
+    if Config.Aimbot then
+        local target = nil; local maxDist = Config.FOV
+        local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= lp and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                local part = p.Character:FindFirstChild(Config.TargetPart)
+                if part then
+                    local pos, onScreen = camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local mag = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                        if mag < maxDist then
+                            rayParams.FilterDescendantsInstances = {lp.Character, camera}
+                            local dir = (part.Position - camera.CFrame.Position)
+                            local result = workspace:Raycast(camera.CFrame.Position, dir, rayParams)
+                            local clear = (not Config.CheckWall) or (result and result.Instance and result.Instance:IsDescendantOf(p.Character))
+                            if clear then
+                                maxDist = mag; target = part
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        if target and (uis:IsMouseButtonPressed(Config.AimKey) or uis.TouchEnabled) then
+            local goal = CFrame.new(camera.CFrame.Position, target.Position)
+            local alpha = 1 / math.max(Config.Smoothness, 1)
+            camera.CFrame = camera.CFrame:Lerp(goal, alpha)
+        end
+    end
+
+    -- ESP LOGIC
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local root = p.Character.HumanoidRootPart
+            if p.Character.Humanoid.Health > 0 then
+                local hl = p.Character:FindFirstChild("LBE_HL")
+                if Config.EspHighlight then
+                    if not hl then hl = Instance.new("Highlight", p.Character); hl.Name = "LBE_HL"; hl.FillColor = Config.MainColor; hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop end
+                    hl.Enabled = true
+                elseif hl then hl.Enabled = false end
+                
+                local bgu = root:FindFirstChild("LBE_BGU")
+                if Config.EspPlayer or Config.EspWeapon then
+                    if not bgu then
+                        bgu = Instance.new("BillboardGui", root); bgu.Name = "LBE_BGU"; bgu.AlwaysOnTop = true; bgu.Size = UDim2.new(0, 250, 0, 80); bgu.ExtentsOffset = Vector3.new(0, 4.5, 0)
+                        local t = Instance.new("TextLabel", bgu); t.Size = UDim2.new(1, 0, 1, 0); t.BackgroundTransparency = 1; t.TextColor3 = Color3.new(1,1,1); t.Font = Enum.Font.SourceSansBold; t.TextSize = 25; Instance.new("UIStroke", t).Thickness = 2
+                    end
+                    local tool = p.Character:FindFirstChildOfClass("Tool"); local weapon = tool and tool.Name or "Không"
+                    bgu.TextLabel.Text = (Config.EspPlayer and p.Name .. "\n" or "") .. (Config.EspWeapon and "[ " .. weapon .. " ]" or "")
+                    bgu.Enabled = true
+                elseif bgu then bgu.Enabled = false end
+            end
+        end
+    end
+end)
+
+-- 6. KEYBIND
+-- T = ẩn/hiện UI
+-- Y = bật/tắt aim nhanh
+-- B = đổi Đầu ↔ Thân
+-- H = đổi nút aim (Chuột Trái ↔ Chuột Phải)
+uis.InputBegan:Connect(function(input, gpe)
+    if input.KeyCode == Enum.KeyCode.T then
+        main.Visible = not main.Visible
+        return
+    end
+    if gpe then return end
+
+    if input.KeyCode == Enum.KeyCode.Y then
+        Config.Aimbot = not Config.Aimbot
+        updateShortcuts()
+    elseif input.KeyCode == Enum.KeyCode.B then
+        if Config.TargetPart == "Head" then
+            SetTargetPart("HumanoidRootPart")
+        else
+            SetTargetPart("Head")
+        end
+    elseif input.KeyCode == Enum.KeyCode.H then
+        if Config.AimKey == Enum.UserInputType.MouseButton2 then
+            Config.AimKey = Enum.UserInputType.MouseButton1
+            print("[long béo] Đổi nút aim → CHUỘT TRÁI")
+        else
+            Config.AimKey = Enum.UserInputType.MouseButton2
+            print("[long béo] Đổi nút aim → CHUỘT PHẢI")
+        end
+    end
+end)
