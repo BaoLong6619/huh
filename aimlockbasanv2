@@ -2,14 +2,17 @@
     AIMLOCK + ESP - LONG BÉO
     - [Q] Bật/tắt Aimlock
     - [B] Bật/tắt ESP
-    - [T] Ẩn/hiện menu
+    - [T] Ẩn/hiện menu (KHÔNG BAO GIỜ bị chặn)
     - [H] Đổi phím aim: Chuột TRÁI ↔ Chuột PHẢI
     - Giữ chuột (đã chọn) = aim
+    - Menu MỞ  : chặn game input (Q/B/H/WASD/Space...) + khoá chuột
+    - Menu ĐÓNG: trả phím về bình thường cho game
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local localPlayer = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -38,11 +41,7 @@ local targetPart = nil
 local lastRetarget = 0
 local espenabled = false
 
--- Bảng lưu các hàm refresh của UI để đồng bộ
-local uiRefs = {
-    toggles = {},
-    refreshAll = function() end,
-}
+local uiRefs = { toggles = {} }
 
 local hasMouseMoveRel = (type(mousemoverel) == "function")
 local hasMouseMoveAbs = (type(mousemoveabs) == "function")
@@ -395,7 +394,6 @@ CloseBtn.TextColor3 = Color3.new(1, 1, 1)
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.BorderSizePixel = 0
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 
 local Page = Instance.new("ScrollingFrame", Main)
 Page.Size = UDim2.new(1, -20, 1, -50)
@@ -407,7 +405,33 @@ Page.ScrollBarImageColor3 = MainColor
 Page.CanvasSize = UDim2.new(0, 0, 0, 500)
 Instance.new("UIListLayout", Page).Padding = UDim.new(0, 6)
 
--- ============ HÀM ĐỒNG BỘ UI ============
+--============================================================
+-- HÀM MỞ / ĐÓNG MENU
+--============================================================
+local savedMouseBehavior = nil
+local savedMouseIcon = nil
+
+local function setMenuVisible(visible)
+    Main.Visible = visible
+
+    if visible then
+        savedMouseBehavior = UserInputService.MouseBehavior
+        savedMouseIcon = UserInputService.MouseIconEnabled
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+    else
+        if savedMouseBehavior then
+            UserInputService.MouseBehavior = savedMouseBehavior
+        end
+        if savedMouseIcon ~= nil then
+            UserInputService.MouseIconEnabled = savedMouseIcon
+        end
+    end
+end
+
+--============================================================
+-- HÀM ĐỒNG BỘ UI
+--============================================================
 local function updateAllUI()
     for _, ref in ipairs(uiRefs.toggles) do
         if ref and ref.refresh then
@@ -419,7 +443,9 @@ local function updateAllUI()
     end
 end
 
--- ============ TOGGLE ============
+--============================================================
+-- TOGGLE
+--============================================================
 local function createToggle(name, configKey)
     local btn = Instance.new("TextButton", Page)
     btn.Size = UDim2.new(1, 0, 0, 34)
@@ -456,9 +482,7 @@ local function createToggle(name, configKey)
         knob.Position = on and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
     end
 
-    -- Lưu ref để đồng bộ
     table.insert(uiRefs.toggles, {key = configKey, refresh = refresh})
-
     refresh()
 
     btn.MouseButton1Click:Connect(function()
@@ -475,6 +499,9 @@ local function createToggle(name, configKey)
     return btn
 end
 
+--============================================================
+-- SLIDER
+--============================================================
 local function createSlider(name, minV, maxV, defV, callback)
     local frame = Instance.new("Frame", Page)
     frame.Size = UDim2.new(1, 0, 0, 48)
@@ -543,11 +570,13 @@ local function createSlider(name, minV, maxV, defV, callback)
     setVal((defV - minV) / (maxV - minV))
 end
 
+--============================================================
+-- TẠO UI
+--============================================================
 createToggle("AIMLOCK (Q)", "AimbotEnabled")
 createToggle("ESP (B)", "espenabled")
 createToggle("Ưu tiên Player hơn Bot", "PriorityPlayer")
 
--- NÚT ĐỔI PHÍM AIM (H)
 local AimKeyButton = Instance.new("TextButton", Page)
 AimKeyButton.Size = UDim2.new(1, 0, 0, 34)
 AimKeyButton.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
@@ -606,47 +635,130 @@ HelpBox.TextXAlignment = Enum.TextXAlignment.Left
 HelpBox.TextYAlignment = Enum.TextYAlignment.Top
 Instance.new("UICorner", HelpBox).CornerRadius = UDim.new(0, 6)
 
+CloseBtn.MouseButton1Click:Connect(function()
+    setMenuVisible(false)
+end)
+
 --============================================================
--- INPUT
+-- CHẶN INPUT GAME KHI MENU MỞ
+--============================================================
+local HIGH_PRIORITY = 2147483647
+
+-- Phím game cần chặn khi menu mở
+local GAME_KEYS = {
+    Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
+    Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.F,
+    Enum.KeyCode.Space, Enum.KeyCode.LeftShift, Enum.KeyCode.LeftControl,
+    Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three,
+    Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six,
+    Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine,
+    Enum.KeyCode.Zero,
+    Enum.KeyCode.Up, Enum.KeyCode.Down, Enum.KeyCode.Left, Enum.KeyCode.Right,
+    Enum.KeyCode.Tab,
+}
+
+-- Handler chặn phím game: chỉ Sink khi menu mở
+local function blockGameHandler(actionName, inputState, inputObject)
+    if Main and Main.Visible then
+        return Enum.ContextActionResult.Sink
+    end
+    return Enum.ContextActionResult.Pass
+end
+
+for _, key in ipairs(GAME_KEYS) do
+    ContextActionService:BindActionAtPriority(
+        "BlockGame_" .. key.Name,
+        blockGameHandler,
+        false,
+        HIGH_PRIORITY,
+        key
+    )
+end
+
+-- Chặn chuột khi menu mở
+ContextActionService:BindActionAtPriority(
+    "BlockMouse1",
+    blockGameHandler,
+    false,
+    HIGH_PRIORITY,
+    Enum.UserInputType.MouseButton1
+)
+ContextActionService:BindActionAtPriority(
+    "BlockMouse2",
+    blockGameHandler,
+    false,
+    HIGH_PRIORITY,
+    Enum.UserInputType.MouseButton2
+)
+
+--============================================================
+-- XỬ LÝ Q / B / H
+-- - Menu MỞ  → Sink (chặn game)
+-- - Menu ĐÓNG → Pass (trả phím cho game)
+--============================================================
+local function handleScriptKey(actionName, inputState, inputObject)
+    if inputState == Enum.UserInputState.Begin then
+        local key = inputObject.KeyCode
+
+        if key == Enum.KeyCode.Q then
+            AimbotEnabled = not AimbotEnabled
+            updateAllUI()
+        elseif key == Enum.KeyCode.B then
+            espenabled = not espenabled
+            if not espenabled then clearAllHighlights() end
+            updateAllUI()
+        elseif key == Enum.KeyCode.H then
+            if Config.AimKey == Enum.UserInputType.MouseButton1 then
+                Config.AimKey = Enum.UserInputType.MouseButton2
+            else
+                Config.AimKey = Enum.UserInputType.MouseButton1
+            end
+            updateAllUI()
+            aiming = false
+        end
+    end
+
+    if Main and Main.Visible then
+        return Enum.ContextActionResult.Sink
+    end
+    return Enum.ContextActionResult.Pass
+end
+
+for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.B, Enum.KeyCode.H}) do
+    ContextActionService:BindActionAtPriority(
+        "ScriptKey_" .. key.Name,
+        handleScriptKey,
+        false,
+        HIGH_PRIORITY,
+        key
+    )
+end
+
+--============================================================
+-- RIÊNG PHÍM T: LUÔN PASS (không bao giờ bị chặn)
+--============================================================
+local function handleMenuKey(actionName, inputState, inputObject)
+    if inputState == Enum.UserInputState.Begin then
+        setMenuVisible(not Main.Visible)
+    end
+    -- Luôn Pass → T không bao giờ bị chặn khỏi game
+    return Enum.ContextActionResult.Pass
+end
+
+ContextActionService:BindActionAtPriority(
+    "ScriptKey_T",
+    handleMenuKey,
+    false,
+    HIGH_PRIORITY,
+    Enum.KeyCode.T
+)
+
+--============================================================
+-- INPUT CHUỘT AIM
 --============================================================
 UserInputService.InputBegan:Connect(function(input, isProcessed)
     if isProcessed then return end
-
-    -- Q: Aimlock — đồng bộ với menu
-    if input.KeyCode == Enum.KeyCode.Q then
-        AimbotEnabled = not AimbotEnabled
-        updateAllUI()
-        return
-    end
-
-    -- B: ESP — đồng bộ với menu
-    if input.KeyCode == Enum.KeyCode.B then
-        espenabled = not espenabled
-        if not espenabled then clearAllHighlights() end
-        updateAllUI()
-        return
-    end
-
-    -- T: Menu
-    if input.KeyCode == Enum.KeyCode.T then
-        Main.Visible = not Main.Visible
-        return
-    end
-
-    -- H: đổi phím aim — đồng bộ với menu
-    if input.KeyCode == Enum.KeyCode.H then
-        if Config.AimKey == Enum.UserInputType.MouseButton1 then
-            Config.AimKey = Enum.UserInputType.MouseButton2
-        else
-            Config.AimKey = Enum.UserInputType.MouseButton1
-        end
-        updateAllUI()
-        aiming = false
-        return
-    end
-
-    -- Bắt chuột theo AimKey đã chọn
-    if input.UserInputType == Config.AimKey then
+    if not Main.Visible and input.UserInputType == Config.AimKey then
         aiming = true
     end
 end)
@@ -662,4 +774,7 @@ print("════════════════════════�
 print("  AIMLOCK + ESP - LONG BÉO")
 print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
 print("  ESP: Player ĐỎ | Bot VÀNG")
+print("  Menu MỞ  : chặn input game + khoá chuột")
+print("  Menu ĐÓNG: trả phím về bình thường")
+print("  [T] KHÔNG BAO GIỜ bị chặn")
 print("═══════════════════════════════════════════════")
