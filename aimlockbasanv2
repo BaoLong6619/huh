@@ -1,0 +1,665 @@
+--[[
+    AIMLOCK + ESP - LONG BÉO
+    - [Q] Bật/tắt Aimlock
+    - [B] Bật/tắt ESP
+    - [T] Ẩn/hiện menu
+    - [H] Đổi phím aim: Chuột TRÁI ↔ Chuột PHẢI
+    - Giữ chuột (đã chọn) = aim
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local PLAYER_FILL = Color3.fromRGB(255, 0, 0)
+local PLAYER_OUTLINE = Color3.fromRGB(255, 255, 255)
+local BOT_FILL = Color3.fromRGB(255, 220, 0)
+local BOT_OUTLINE = Color3.fromRGB(255, 180, 0)
+local FILL_TRANSPARENCY = 0.5
+local OUTLINE_TRANSPARENCY = 0
+
+local Config = {
+    AimSpeed        = 0.18,
+    RetargetTime    = 0.15,
+    FOV             = 150,
+    ESPRange        = 500,
+    PriorityPlayer  = true,
+    ESPUpdateRate   = 0.1,
+    BotScanRate     = 1.0,
+    AimKey          = Enum.UserInputType.MouseButton1,
+}
+
+local AimbotEnabled = false
+local aiming = false
+local targetPart = nil
+local lastRetarget = 0
+local espenabled = false
+
+-- Bảng lưu các hàm refresh của UI để đồng bộ
+local uiRefs = {
+    toggles = {},
+    refreshAll = function() end,
+}
+
+local hasMouseMoveRel = (type(mousemoverel) == "function")
+local hasMouseMoveAbs = (type(mousemoveabs) == "function")
+
+print("[AIMLOCK] mousemoverel:", hasMouseMoveRel and "OK" or "NIL")
+print("[AIMLOCK] mousemoveabs:", hasMouseMoveAbs and "OK" or "NIL")
+
+--============================================================
+-- BOT DETECTION
+--============================================================
+local function isBotModel(model)
+    if not model or not model.Parent then return false end
+    if not model:IsA("Model") then return false end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    return true
+end
+
+local botCache = {}
+local lastBotScan = 0
+
+local function scanBots()
+    local bots = {}
+    local seen = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Humanoid") and obj.Parent then
+            local model = obj.Parent
+            if not seen[model] and isBotModel(model) then
+                if obj.Health > 0 then
+                    seen[model] = true
+                    table.insert(bots, model)
+                end
+            end
+        end
+    end
+    return bots
+end
+
+local function getBots()
+    local now = tick()
+    if now - lastBotScan >= Config.BotScanRate then
+        lastBotScan = now
+        botCache = scanBots()
+    end
+    return botCache
+end
+
+--============================================================
+-- AIM TARGET (FOV)
+--============================================================
+local targetCache = {}
+local lastTargetScan = 0
+
+local function rebuildTargetCache()
+    local all = {}
+
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= localPlayer and v.Character then
+            local hum = v.Character:FindFirstChildOfClass("Humanoid")
+            local root = v.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and root then
+                local part = v.Character:FindFirstChild("HeadHB")
+                    or v.Character:FindFirstChild("Head")
+                    or v.Character:FindFirstChild("UpperTorso")
+                    or root
+                if part then
+                    table.insert(all, {part = part, root = root, isBot = false})
+                end
+            end
+        end
+    end
+
+    for _, model in ipairs(getBots()) do
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local root = model:FindFirstChild("HumanoidRootPart")
+        if hum and hum.Health > 0 and root then
+            local part = model:FindFirstChild("HeadHB")
+                or model:FindFirstChild("Head")
+                or model:FindFirstChild("UpperTorso")
+                or root
+            if part then
+                table.insert(all, {part = part, root = root, isBot = true})
+            end
+        end
+    end
+
+    targetCache = all
+end
+
+local function getBestTarget()
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+
+    local now = tick()
+    if now - lastTargetScan >= Config.RetargetTime then
+        lastTargetScan = now
+        rebuildTargetCache()
+    end
+
+    local viewport = cam.ViewportSize
+    local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+
+    local bestPart, bestDist = nil, math.huge
+
+    for _, t in ipairs(targetCache) do
+        if t.part.Parent and t.root.Parent then
+            local sp, onScreen = cam:WorldToViewportPoint(t.part.Position)
+            if onScreen and sp.Z > 0 then
+                local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                if distToCenter <= Config.FOV then
+                    local weight = 1
+                    if Config.PriorityPlayer and t.isBot then
+                        weight = 1.5
+                    end
+                    local weighted = distToCenter * weight
+                    if weighted < bestDist then
+                        bestDist = weighted
+                        bestPart = t.part
+                    end
+                end
+            end
+        end
+    end
+
+    return bestPart
+end
+
+--============================================================
+-- AIM LOOP
+--============================================================
+RunService.RenderStepped:Connect(function()
+    if not AimbotEnabled or not aiming then
+        targetPart = nil
+        return
+    end
+
+    local now = tick()
+    if now - lastRetarget >= Config.RetargetTime then
+        lastRetarget = now
+        targetPart = getBestTarget()
+    end
+
+    if not targetPart or not targetPart.Parent then
+        targetPart = getBestTarget()
+        lastRetarget = now
+    end
+
+    if not targetPart or not targetPart.Parent then return end
+
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
+    if not onScreen then return end
+
+    local mouse = UserInputService:GetMouseLocation()
+    local dx = screenPos.X - mouse.X
+    local dy = screenPos.Y - mouse.Y
+
+    local moveX = dx * Config.AimSpeed
+    local moveY = dy * Config.AimSpeed
+
+    if hasMouseMoveRel then
+        mousemoverel(moveX, moveY)
+    elseif hasMouseMoveAbs then
+        mousemoveabs(mouse.X + moveX, mouse.Y + moveY)
+    end
+end)
+
+--============================================================
+-- ESP
+--============================================================
+local activeHighlights = {}
+
+local function createHighlight(model, isBot)
+    local tag = isBot and "BotHighlight" or "PlayerHighlight"
+    local existing = model:FindFirstChild(tag)
+    if existing then return existing end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = tag
+    hl.FillColor = isBot and BOT_FILL or PLAYER_FILL
+    hl.OutlineColor = isBot and BOT_OUTLINE or PLAYER_OUTLINE
+    hl.FillTransparency = FILL_TRANSPARENCY
+    hl.OutlineTransparency = OUTLINE_TRANSPARENCY
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Adornee = model
+    hl.Parent = model
+    return hl
+end
+
+local function removeHighlightFor(model)
+    for _, tag in ipairs({"PlayerHighlight", "BotHighlight"}) do
+        local h = model:FindFirstChild(tag)
+        if h then h:Destroy() end
+    end
+end
+
+local function clearAllHighlights()
+    for model, _ in pairs(activeHighlights) do
+        if model and model.Parent then
+            removeHighlightFor(model)
+        end
+    end
+    activeHighlights = {}
+end
+
+local function updateESP()
+    if not espenabled then
+        if next(activeHighlights) ~= nil then
+            clearAllHighlights()
+        end
+        return
+    end
+
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local origin = cam.CFrame.Position
+    local range = Config.ESPRange
+
+    local visible = {}
+
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= localPlayer and v.Character then
+            local root = v.Character:FindFirstChild("HumanoidRootPart")
+            local hum = v.Character:FindFirstChildOfClass("Humanoid")
+            if root and hum and hum.Health > 0 then
+                if (root.Position - origin).Magnitude <= range then
+                    visible[v.Character] = false
+                end
+            end
+        end
+    end
+
+    for _, model in ipairs(getBots()) do
+        local root = model:FindFirstChild("HumanoidRootPart")
+        if root then
+            if (root.Position - origin).Magnitude <= range then
+                visible[model] = true
+            end
+        end
+    end
+
+    for model, _ in pairs(activeHighlights) do
+        if not visible[model] or not model.Parent then
+            removeHighlightFor(model)
+            activeHighlights[model] = nil
+        end
+    end
+
+    for model, isBot in pairs(visible) do
+        if not activeHighlights[model] then
+            local hl = createHighlight(model, isBot)
+            activeHighlights[model] = hl
+        end
+    end
+end
+
+local espAccum = 0
+RunService.Heartbeat:Connect(function(dt)
+    espAccum += dt
+    if espAccum < Config.ESPUpdateRate then return end
+    espAccum = 0
+    updateESP()
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        task.wait(0.1)
+        updateESP()
+    end)
+end)
+
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= localPlayer then
+        player.CharacterAdded:Connect(function(character)
+            task.wait(0.1)
+            updateESP()
+        end)
+    end
+end
+
+--============================================================
+-- GUI
+--============================================================
+if localPlayer.PlayerGui:FindFirstChild("LongBeo_AimlockESP") then
+    localPlayer.PlayerGui.LongBeo_AimlockESP:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeo_AimlockESP"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local MainColor = Color3.fromRGB(104, 95, 233)
+
+local function makeDraggable(obj)
+    local dragging, dragStart, startPos
+    obj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, dragStart, startPos = true, input.Position, obj.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            local d = input.Position - dragStart
+            obj.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    obj.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    end)
+end
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 280, 0, 440)
+Main.Position = UDim2.new(0, 20, 0.5, -220)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+Main.BorderSizePixel = 0
+Main.Visible = false
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", Main).Color = MainColor
+makeDraggable(Main)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 34)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+Title.BorderSizePixel = 0
+Title.Text = "  AIMLOCK + ESP"
+Title.TextColor3 = MainColor
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
+
+local CloseBtn = Instance.new("TextButton", Title)
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -32, 0, 3)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.BorderSizePixel = 0
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
+
+local Page = Instance.new("ScrollingFrame", Main)
+Page.Size = UDim2.new(1, -20, 1, -50)
+Page.Position = UDim2.new(0, 10, 0, 40)
+Page.BackgroundTransparency = 1
+Page.BorderSizePixel = 0
+Page.ScrollBarThickness = 3
+Page.ScrollBarImageColor3 = MainColor
+Page.CanvasSize = UDim2.new(0, 0, 0, 500)
+Instance.new("UIListLayout", Page).Padding = UDim.new(0, 6)
+
+-- ============ HÀM ĐỒNG BỘ UI ============
+local function updateAllUI()
+    for _, ref in ipairs(uiRefs.toggles) do
+        if ref and ref.refresh then
+            ref.refresh()
+        end
+    end
+    if uiRefs.refreshAimKey then
+        uiRefs.refreshAimKey()
+    end
+end
+
+-- ============ TOGGLE ============
+local function createToggle(name, configKey)
+    local btn = Instance.new("TextButton", Page)
+    btn.Size = UDim2.new(1, 0, 0, 34)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 13
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Text = "  " .. name
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    local ind = Instance.new("Frame", btn)
+    ind.Size = UDim2.new(0, 36, 0, 18)
+    ind.Position = UDim2.new(1, -46, 0.5, -9)
+    ind.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    ind.BorderSizePixel = 0
+    Instance.new("UICorner", ind).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame", ind)
+    knob.Size = UDim2.new(0, 14, 0, 14)
+    knob.Position = UDim2.new(0, 2, 0.5, -7)
+    knob.BackgroundColor3 = Color3.new(1, 1, 1)
+    knob.BorderSizePixel = 0
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local function refresh()
+        local on = false
+        if configKey == "espenabled" then on = espenabled
+        elseif configKey == "AimbotEnabled" then on = AimbotEnabled
+        elseif configKey == "PriorityPlayer" then on = Config.PriorityPlayer
+        end
+        ind.BackgroundColor3 = on and MainColor or Color3.fromRGB(60, 60, 70)
+        knob.Position = on and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
+    end
+
+    -- Lưu ref để đồng bộ
+    table.insert(uiRefs.toggles, {key = configKey, refresh = refresh})
+
+    refresh()
+
+    btn.MouseButton1Click:Connect(function()
+        if configKey == "espenabled" then
+            espenabled = not espenabled
+            if not espenabled then clearAllHighlights() end
+        elseif configKey == "AimbotEnabled" then
+            AimbotEnabled = not AimbotEnabled
+        elseif configKey == "PriorityPlayer" then
+            Config.PriorityPlayer = not Config.PriorityPlayer
+        end
+        refresh()
+    end)
+    return btn
+end
+
+local function createSlider(name, minV, maxV, defV, callback)
+    local frame = Instance.new("Frame", Page)
+    frame.Size = UDim2.new(1, 0, 0, 48)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    frame.BorderSizePixel = 0
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+
+    local lbl = Instance.new("TextLabel", frame)
+    lbl.Size = UDim2.new(1, -12, 0, 20)
+    lbl.Position = UDim2.new(0, 6, 0, 2)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.new(1, 1, 1)
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = "  " .. name
+
+    local bar = Instance.new("Frame", frame)
+    bar.Size = UDim2.new(1, -16, 0, 6)
+    bar.Position = UDim2.new(0, 8, 0, 34)
+    bar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    bar.BorderSizePixel = 0
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.new((defV - minV) / (maxV - minV), 0, 1, 0)
+    fill.BackgroundColor3 = MainColor
+    fill.BorderSizePixel = 0
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+
+    local function setVal(relX)
+        local rel = math.clamp(relX, 0, 1)
+        local val = minV + (maxV - minV) * rel
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        if maxV > 10 then
+            lbl.Text = "  " .. name .. "  " .. math.floor(val)
+        else
+            lbl.Text = "  " .. name .. "  " .. string.format("%.2f", val)
+        end
+        callback(val)
+    end
+
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            local rel = (input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X
+            setVal(rel)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local rel = (input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X
+            setVal(rel)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    setVal((defV - minV) / (maxV - minV))
+end
+
+createToggle("AIMLOCK (Q)", "AimbotEnabled")
+createToggle("ESP (B)", "espenabled")
+createToggle("Ưu tiên Player hơn Bot", "PriorityPlayer")
+
+-- NÚT ĐỔI PHÍM AIM (H)
+local AimKeyButton = Instance.new("TextButton", Page)
+AimKeyButton.Size = UDim2.new(1, 0, 0, 34)
+AimKeyButton.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
+AimKeyButton.BorderSizePixel = 0
+AimKeyButton.Font = Enum.Font.GothamBold
+AimKeyButton.TextSize = 12
+AimKeyButton.TextColor3 = MainColor
+AimKeyButton.TextXAlignment = Enum.TextXAlignment.Left
+AimKeyButton.Text = "  PHÍM AIM (H): CHUỘT TRÁI"
+Instance.new("UICorner", AimKeyButton).CornerRadius = UDim.new(0, 6)
+
+local function refreshAimKey()
+    if Config.AimKey == Enum.UserInputType.MouseButton1 then
+        AimKeyButton.Text = "  PHÍM AIM (H): CHUỘT TRÁI"
+    else
+        AimKeyButton.Text = "  PHÍM AIM (H): CHUỘT PHẢI"
+    end
+end
+uiRefs.refreshAimKey = refreshAimKey
+refreshAimKey()
+
+AimKeyButton.MouseButton1Click:Connect(function()
+    if Config.AimKey == Enum.UserInputType.MouseButton1 then
+        Config.AimKey = Enum.UserInputType.MouseButton2
+    else
+        Config.AimKey = Enum.UserInputType.MouseButton1
+    end
+    refreshAimKey()
+end)
+
+createSlider("AIM SPEED", 0.03, 0.5, Config.AimSpeed, function(v)
+    Config.AimSpeed = v
+end)
+
+createSlider("FOV", 30, 400, Config.FOV, function(v)
+    Config.FOV = v
+end)
+
+createSlider("ESP RANGE", 50, 1000, Config.ESPRange, function(v)
+    Config.ESPRange = v
+end)
+
+createSlider("RETARGET (s)", 0.05, 1.0, Config.RetargetTime, function(v)
+    Config.RetargetTime = v
+end)
+
+local HelpBox = Instance.new("TextLabel", Page)
+HelpBox.Size = UDim2.new(1, 0, 0, 90)
+HelpBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+HelpBox.BorderSizePixel = 0
+HelpBox.Text = "  [Q] Aimlock  [B] ESP  [T] Menu\n  [H] Đổi phím aim (L/P)\n  Giữ phím aim đã chọn = aim\n  ESP: Player ĐỎ | Bot VÀNG"
+HelpBox.TextColor3 = Color3.fromRGB(180, 180, 180)
+HelpBox.Font = Enum.Font.Gotham
+HelpBox.TextSize = 11
+HelpBox.TextXAlignment = Enum.TextXAlignment.Left
+HelpBox.TextYAlignment = Enum.TextYAlignment.Top
+Instance.new("UICorner", HelpBox).CornerRadius = UDim.new(0, 6)
+
+--============================================================
+-- INPUT
+--============================================================
+UserInputService.InputBegan:Connect(function(input, isProcessed)
+    if isProcessed then return end
+
+    -- Q: Aimlock — đồng bộ với menu
+    if input.KeyCode == Enum.KeyCode.Q then
+        AimbotEnabled = not AimbotEnabled
+        updateAllUI()
+        return
+    end
+
+    -- B: ESP — đồng bộ với menu
+    if input.KeyCode == Enum.KeyCode.B then
+        espenabled = not espenabled
+        if not espenabled then clearAllHighlights() end
+        updateAllUI()
+        return
+    end
+
+    -- T: Menu
+    if input.KeyCode == Enum.KeyCode.T then
+        Main.Visible = not Main.Visible
+        return
+    end
+
+    -- H: đổi phím aim — đồng bộ với menu
+    if input.KeyCode == Enum.KeyCode.H then
+        if Config.AimKey == Enum.UserInputType.MouseButton1 then
+            Config.AimKey = Enum.UserInputType.MouseButton2
+        else
+            Config.AimKey = Enum.UserInputType.MouseButton1
+        end
+        updateAllUI()
+        aiming = false
+        return
+    end
+
+    -- Bắt chuột theo AimKey đã chọn
+    if input.UserInputType == Config.AimKey then
+        aiming = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, isProcessed)
+    if isProcessed then return end
+    if input.UserInputType == Config.AimKey then
+        aiming = false
+    end
+end)
+
+print("═══════════════════════════════════════════════")
+print("  AIMLOCK + ESP - LONG BÉO")
+print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
+print("  ESP: Player ĐỎ | Bot VÀNG")
+print("═══════════════════════════════════════════════")
