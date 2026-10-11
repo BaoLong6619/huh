@@ -5,6 +5,7 @@
     - [T] Ẩn/hiện menu (KHÔNG BAO GIỜ bị chặn)
     - [H] Đổi phím aim: Chuột TRÁI ↔ Chuột PHẢI
     - Khi Aimlock BẬT: chuột tự động bám theo đầu player/bot gần tâm màn hình
+    - Có CHECK TƯỜNG: không khóa xuyên tường
     - Menu MỞ  : chặn game input + khoá chuột
     - Menu ĐÓNG: trả phím về bình thường cho game
 ]]
@@ -92,6 +93,39 @@ local function getBots()
 end
 
 --============================================================
+-- WALL CHECK
+--============================================================
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+raycastParams.IgnoreWater = true
+
+local function isVisible(targetPart)
+    if not targetPart or not targetPart.Parent then return false end
+
+    local cam = workspace.CurrentCamera
+    if not cam then return false end
+
+    local origin = cam.CFrame.Position
+    local direction = targetPart.Position - origin
+
+    local ignore = {}
+    if localPlayer.Character then
+        table.insert(ignore, localPlayer.Character)
+    end
+    local targetChar = targetPart:FindFirstAncestorOfClass("Model")
+    if targetChar then
+        table.insert(ignore, targetChar)
+    end
+    raycastParams.FilterDescendantsInstances = ignore
+
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    if result then
+        return false
+    end
+    return true
+end
+
+--============================================================
 -- AIM TARGET (FOV)
 --============================================================
 local targetCache = {}
@@ -152,7 +186,7 @@ local function getBestTarget()
             local sp, onScreen = cam:WorldToViewportPoint(t.part.Position)
             if onScreen and sp.Z > 0 then
                 local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                if distToCenter <= Config.FOV then
+                if distToCenter <= Config.FOV and isVisible(t.part) then
                     local weight = 1
                     if Config.PriorityPlayer and t.isBot then
                         weight = 1.5
@@ -199,6 +233,12 @@ RunService.RenderStepped:Connect(function()
     end
 
     if not targetPart or not targetPart.Parent then return end
+
+    -- Nếu target bị tường chắn thì bỏ khóa
+    if not isVisible(targetPart) then
+        targetPart = nil
+        return
+    end
 
     local cam = workspace.CurrentCamera
     if not cam then return end
@@ -783,6 +823,7 @@ print("════════════════════════�
 print("  AIMLOCK + ESP - LONG BÉO (AUTO LOCK)")
 print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
 print("  AUTO LOCK: chuột bám đầu player full screen")
+print("  CHECK TƯỜNG: không khóa xuyên tường")
 print("  Menu MỞ  : chặn input game + khoá chuột")
 print("  Menu ĐÓNG: trả phím về bình thường")
 print("  [T] KHÔNG BAO GIỜ bị chặn")
