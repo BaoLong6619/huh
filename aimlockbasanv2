@@ -4,8 +4,10 @@
     - [B] Bật/tắt ESP
     - [T] Ẩn/hiện menu (KHÔNG BAO GIỜ bị chặn)
     - [H] Đổi phím aim: Chuột TRÁI ↔ Chuột PHẢI
+    - [J] Loại người dưới chuột khỏi aim + ESP (ấn lại để bỏ)
+    - [L] Mở/đóng BLACKLIST (có nút Bỏ + Bỏ tất cả)
     - Giữ chuột (đã chọn) = aim
-    - Menu MỞ  : chặn game input (Q/B/H/WASD/Space...) + khoá chuột
+    - Menu MỞ  : chặn game input + khoá chuột
     - Menu ĐÓNG: trả phím về bình thường cho game
 ]]
 
@@ -40,6 +42,8 @@ local aiming = false
 local targetPart = nil
 local lastRetarget = 0
 local espenabled = false
+
+local Blacklist = {}  -- [model] = true
 
 local uiRefs = { toggles = {} }
 
@@ -100,7 +104,7 @@ local function rebuildTargetCache()
     local all = {}
 
     for _, v in ipairs(Players:GetPlayers()) do
-        if v ~= localPlayer and v.Character then
+        if v ~= localPlayer and v.Character and not Blacklist[v.Character] then
             local hum = v.Character:FindFirstChildOfClass("Humanoid")
             local root = v.Character:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and root then
@@ -116,15 +120,17 @@ local function rebuildTargetCache()
     end
 
     for _, model in ipairs(getBots()) do
-        local hum = model:FindFirstChildOfClass("Humanoid")
-        local root = model:FindFirstChild("HumanoidRootPart")
-        if hum and hum.Health > 0 and root then
-            local part = model:FindFirstChild("HeadHB")
-                or model:FindFirstChild("Head")
-                or model:FindFirstChild("UpperTorso")
-                or root
-            if part then
-                table.insert(all, {part = part, root = root, isBot = true})
+        if not Blacklist[model] then
+            local hum = model:FindFirstChildOfClass("Humanoid")
+            local root = model:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and root then
+                local part = model:FindFirstChild("HeadHB")
+                    or model:FindFirstChild("Head")
+                    or model:FindFirstChild("UpperTorso")
+                    or root
+                if part then
+                    table.insert(all, {part = part, root = root, isBot = true})
+                end
             end
         end
     end
@@ -171,7 +177,32 @@ local function getBestTarget()
 end
 
 --============================================================
--- AIM LOOP
+-- MODEL DƯỚI CHUỘT (cho phím J)
+--============================================================
+local function getModelUnderMouse()
+    local mouse = UserInputService:GetMouseLocation()
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+    local ray = cam:ViewportPointToRay(mouse.X, mouse.Y)
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local ignore = {}
+    if localPlayer.Character then table.insert(ignore, localPlayer.Character) end
+    params.FilterDescendantsInstances = ignore
+
+    local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
+    if not result then return nil end
+
+    local model = result.Instance:FindFirstAncestorOfClass("Model")
+    if not model then return nil end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return nil end
+    return model
+end
+
+--============================================================
+-- AIM LOOP (GIỐNG BẢN GỐC)
 --============================================================
 RunService.RenderStepped:Connect(function()
     if not AimbotEnabled or not aiming then
@@ -266,7 +297,7 @@ local function updateESP()
     local visible = {}
 
     for _, v in ipairs(Players:GetPlayers()) do
-        if v ~= localPlayer and v.Character then
+        if v ~= localPlayer and v.Character and not Blacklist[v.Character] then
             local root = v.Character:FindFirstChild("HumanoidRootPart")
             local hum = v.Character:FindFirstChildOfClass("Humanoid")
             if root and hum and hum.Health > 0 then
@@ -278,16 +309,18 @@ local function updateESP()
     end
 
     for _, model in ipairs(getBots()) do
-        local root = model:FindFirstChild("HumanoidRootPart")
-        if root then
-            if (root.Position - origin).Magnitude <= range then
-                visible[model] = true
+        if not Blacklist[model] then
+            local root = model:FindFirstChild("HumanoidRootPart")
+            if root then
+                if (root.Position - origin).Magnitude <= range then
+                    visible[model] = true
+                end
             end
         end
     end
 
     for model, _ in pairs(activeHighlights) do
-        if not visible[model] or not model.Parent then
+        if not visible[model] or not model.Parent or Blacklist[model] then
             removeHighlightFor(model)
             activeHighlights[model] = nil
         end
@@ -365,8 +398,8 @@ local function makeDraggable(obj)
 end
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 280, 0, 440)
-Main.Position = UDim2.new(0, 20, 0.5, -220)
+Main.Size = UDim2.new(0, 280, 0, 480)
+Main.Position = UDim2.new(0, 20, 0.5, -240)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
 Main.BorderSizePixel = 0
 Main.Visible = false
@@ -402,8 +435,139 @@ Page.BackgroundTransparency = 1
 Page.BorderSizePixel = 0
 Page.ScrollBarThickness = 3
 Page.ScrollBarImageColor3 = MainColor
-Page.CanvasSize = UDim2.new(0, 0, 0, 500)
+Page.CanvasSize = UDim2.new(0, 0, 0, 620)
 Instance.new("UIListLayout", Page).Padding = UDim.new(0, 6)
+
+--============================================================
+-- BLACKLIST PANEL
+--============================================================
+local BlacklistPanel = Instance.new("Frame", ScreenGui)
+BlacklistPanel.Size = UDim2.new(0, 280, 0, 360)
+BlacklistPanel.Position = UDim2.new(0, 320, 0.5, -180)
+BlacklistPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+BlacklistPanel.BorderSizePixel = 0
+BlacklistPanel.Visible = false
+Instance.new("UICorner", BlacklistPanel).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", BlacklistPanel).Color = Color3.fromRGB(0, 200, 100)
+makeDraggable(BlacklistPanel)
+
+local BLTitle = Instance.new("TextLabel", BlacklistPanel)
+BLTitle.Size = UDim2.new(1, 0, 0, 34)
+BLTitle.BackgroundColor3 = Color3.fromRGB(20, 40, 30)
+BLTitle.BorderSizePixel = 0
+BLTitle.Text = "  BLACKLIST"
+BLTitle.TextColor3 = Color3.fromRGB(0, 220, 120)
+BLTitle.Font = Enum.Font.GothamBold
+BLTitle.TextSize = 13
+BLTitle.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", BLTitle).CornerRadius = UDim.new(0, 10)
+
+local BLClearAll = Instance.new("TextButton", BLTitle)
+BLClearAll.Size = UDim2.new(0, 74, 0, 24)
+BLClearAll.Position = UDim2.new(1, -110, 0, 5)
+BLClearAll.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+BLClearAll.Text = "BỎ TẤT CẢ"
+BLClearAll.TextColor3 = Color3.new(1, 1, 1)
+BLClearAll.Font = Enum.Font.GothamBold
+BLClearAll.TextSize = 10
+BLClearAll.BorderSizePixel = 0
+Instance.new("UICorner", BLClearAll).CornerRadius = UDim.new(0, 6)
+
+local BLClose = Instance.new("TextButton", BLTitle)
+BLClose.Size = UDim2.new(0, 28, 0, 28)
+BLClose.Position = UDim2.new(1, -32, 0, 3)
+BLClose.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+BLClose.Text = "X"
+BLClose.TextColor3 = Color3.new(1, 1, 1)
+BLClose.Font = Enum.Font.GothamBold
+BLClose.BorderSizePixel = 0
+Instance.new("UICorner", BLClose).CornerRadius = UDim.new(0, 6)
+
+local BLPage = Instance.new("ScrollingFrame", BlacklistPanel)
+BLPage.Size = UDim2.new(1, -20, 1, -50)
+BLPage.Position = UDim2.new(0, 10, 0, 40)
+BLPage.BackgroundTransparency = 1
+BLPage.BorderSizePixel = 0
+BLPage.ScrollBarThickness = 3
+BLPage.ScrollBarImageColor3 = Color3.fromRGB(0, 200, 100)
+BLPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+BLPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Instance.new("UIListLayout", BLPage).Padding = UDim.new(0, 6)
+
+local function getDisplayName(model)
+    local plr = Players:GetPlayerFromCharacter(model)
+    if plr then return plr.Name end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if hum and hum.DisplayName ~= "" then return hum.DisplayName end
+    return model.Name
+end
+
+local function refreshBlacklistUI()
+    for _, c in ipairs(BLPage:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("Frame") then c:Destroy() end
+    end
+
+    local count = 0
+    for _ in pairs(Blacklist) do count += 1 end
+
+    if count == 0 then
+        local empty = Instance.new("TextLabel", BLPage)
+        empty.Size = UDim2.new(1, 0, 0, 40)
+        empty.BackgroundTransparency = 1
+        empty.Text = "  (Trống — lia chuột + ấn J để loại)"
+        empty.TextColor3 = Color3.fromRGB(150, 150, 160)
+        empty.Font = Enum.Font.Gotham
+        empty.TextSize = 11
+        empty.TextXAlignment = Enum.TextXAlignment.Left
+        return
+    end
+
+    for model, _ in pairs(Blacklist) do
+        local row = Instance.new("Frame", BLPage)
+        row.Size = UDim2.new(1, 0, 0, 34)
+        row.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        row.BorderSizePixel = 0
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+
+        local nameLbl = Instance.new("TextLabel", row)
+        nameLbl.Size = UDim2.new(1, -70, 1, 0)
+        nameLbl.Position = UDim2.new(0, 8, 0, 0)
+        nameLbl.BackgroundTransparency = 1
+        nameLbl.Text = getDisplayName(model)
+        nameLbl.TextColor3 = Color3.new(1, 1, 1)
+        nameLbl.Font = Enum.Font.GothamMedium
+        nameLbl.TextSize = 12
+        nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+        nameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+        local removeBtn = Instance.new("TextButton", row)
+        removeBtn.Size = UDim2.new(0, 54, 0, 24)
+        removeBtn.Position = UDim2.new(1, -60, 0.5, -12)
+        removeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        removeBtn.Text = "Bỏ"
+        removeBtn.TextColor3 = Color3.new(1, 1, 1)
+        removeBtn.Font = Enum.Font.GothamBold
+        removeBtn.TextSize = 11
+        removeBtn.BorderSizePixel = 0
+        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0, 6)
+
+        removeBtn.MouseButton1Click:Connect(function()
+            Blacklist[model] = nil
+            refreshBlacklistUI()
+            updateESP()
+        end)
+    end
+end
+
+BLClearAll.MouseButton1Click:Connect(function()
+    Blacklist = {}
+    refreshBlacklistUI()
+    updateESP()
+end)
+
+BLClose.MouseButton1Click:Connect(function()
+    BlacklistPanel.Visible = false
+end)
 
 --============================================================
 -- HÀM MỞ / ĐÓNG MENU
@@ -623,11 +787,27 @@ createSlider("RETARGET (s)", 0.05, 1.0, Config.RetargetTime, function(v)
     Config.RetargetTime = v
 end)
 
+local OpenBLBtn = Instance.new("TextButton", Page)
+OpenBLBtn.Size = UDim2.new(1, 0, 0, 34)
+OpenBLBtn.BackgroundColor3 = Color3.fromRGB(20, 50, 35)
+OpenBLBtn.BorderSizePixel = 0
+OpenBLBtn.Font = Enum.Font.GothamBold
+OpenBLBtn.TextSize = 12
+OpenBLBtn.TextColor3 = Color3.fromRGB(0, 220, 120)
+OpenBLBtn.TextXAlignment = Enum.TextXAlignment.Left
+OpenBLBtn.Text = "  MỞ BLACKLIST (L)"
+Instance.new("UICorner", OpenBLBtn).CornerRadius = UDim.new(0, 6)
+
+OpenBLBtn.MouseButton1Click:Connect(function()
+    BlacklistPanel.Visible = not BlacklistPanel.Visible
+    if BlacklistPanel.Visible then refreshBlacklistUI() end
+end)
+
 local HelpBox = Instance.new("TextLabel", Page)
-HelpBox.Size = UDim2.new(1, 0, 0, 90)
+HelpBox.Size = UDim2.new(1, 0, 0, 110)
 HelpBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 HelpBox.BorderSizePixel = 0
-HelpBox.Text = "  [Q] Aimlock  [B] ESP  [T] Menu\n  [H] Đổi phím aim (L/P)\n  Giữ phím aim đã chọn = aim\n  ESP: Player ĐỎ | Bot VÀNG"
+HelpBox.Text = "  [Q] Aimlock  [B] ESP  [T] Menu\n  [H] Đổi phím aim (L/P)\n  [J] Loại người dưới chuột\n  [L] Mở Blacklist (có Bỏ All)\n  Giữ phím aim đã chọn = aim"
 HelpBox.TextColor3 = Color3.fromRGB(180, 180, 180)
 HelpBox.Font = Enum.Font.Gotham
 HelpBox.TextSize = 11
@@ -644,7 +824,6 @@ end)
 --============================================================
 local HIGH_PRIORITY = 2147483647
 
--- Phím game cần chặn khi menu mở
 local GAME_KEYS = {
     Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
     Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.F,
@@ -657,7 +836,6 @@ local GAME_KEYS = {
     Enum.KeyCode.Tab,
 }
 
--- Handler chặn phím game: chỉ Sink khi menu mở
 local function blockGameHandler(actionName, inputState, inputObject)
     if Main and Main.Visible then
         return Enum.ContextActionResult.Sink
@@ -675,7 +853,6 @@ for _, key in ipairs(GAME_KEYS) do
     )
 end
 
--- Chặn chuột khi menu mở
 ContextActionService:BindActionAtPriority(
     "BlockMouse1",
     blockGameHandler,
@@ -692,9 +869,7 @@ ContextActionService:BindActionAtPriority(
 )
 
 --============================================================
--- XỬ LÝ Q / B / H
--- - Menu MỞ  → Sink (chặn game)
--- - Menu ĐÓNG → Pass (trả phím cho game)
+-- XỬ LÝ Q / B / H / J / L
 --============================================================
 local function handleScriptKey(actionName, inputState, inputObject)
     if inputState == Enum.UserInputState.Begin then
@@ -715,6 +890,24 @@ local function handleScriptKey(actionName, inputState, inputObject)
             end
             updateAllUI()
             aiming = false
+        elseif key == Enum.KeyCode.J then
+            local model = getModelUnderMouse()
+            if model then
+                if Blacklist[model] then
+                    Blacklist[model] = nil
+                else
+                    Blacklist[model] = true
+                    removeHighlightFor(model)
+                    activeHighlights[model] = nil
+                    if targetPart and targetPart:FindFirstAncestorOfClass("Model") == model then
+                        targetPart = nil
+                    end
+                end
+                if BlacklistPanel.Visible then refreshBlacklistUI() end
+            end
+        elseif key == Enum.KeyCode.L then
+            BlacklistPanel.Visible = not BlacklistPanel.Visible
+            if BlacklistPanel.Visible then refreshBlacklistUI() end
         end
     end
 
@@ -724,7 +917,7 @@ local function handleScriptKey(actionName, inputState, inputObject)
     return Enum.ContextActionResult.Pass
 end
 
-for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.B, Enum.KeyCode.H}) do
+for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.B, Enum.KeyCode.H, Enum.KeyCode.J, Enum.KeyCode.L}) do
     ContextActionService:BindActionAtPriority(
         "ScriptKey_" .. key.Name,
         handleScriptKey,
@@ -735,13 +928,12 @@ for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.B, Enum.KeyCode.H}) do
 end
 
 --============================================================
--- RIÊNG PHÍM T: LUÔN PASS (không bao giờ bị chặn)
+-- RIÊNG PHÍM T: LUÔN PASS
 --============================================================
 local function handleMenuKey(actionName, inputState, inputObject)
     if inputState == Enum.UserInputState.Begin then
         setMenuVisible(not Main.Visible)
     end
-    -- Luôn Pass → T không bao giờ bị chặn khỏi game
     return Enum.ContextActionResult.Pass
 end
 
@@ -773,6 +965,7 @@ end)
 print("═══════════════════════════════════════════════")
 print("  AIMLOCK + ESP - LONG BÉO")
 print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
+print("  [J] Loại người  [L] Blacklist (có Bỏ All)")
 print("  ESP: Player ĐỎ | Bot VÀNG")
 print("  Menu MỞ  : chặn input game + khoá chuột")
 print("  Menu ĐÓNG: trả phím về bình thường")
