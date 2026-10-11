@@ -28,7 +28,7 @@ local OUTLINE_TRANSPARENCY = 0
 local Config = {
     AimSpeed        = 0.25,   -- tốc độ bám (0.05 = chậm, 0.5 = nhanh)
     RetargetTime    = 0.15,   -- thời gian đổi mục tiêu
-    FOV             = 400,    -- bán kính quét mục tiêu (pixel)
+    FOV             = 800,    -- bán kính quét mục tiêu (pixel) - MẶC ĐỊNH LÚC BẬT
     ESPRange        = 500,
     PriorityPlayer  = true,
     ESPUpdateRate   = 0.1,
