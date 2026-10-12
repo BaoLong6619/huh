@@ -1,5 +1,5 @@
 --[[
-    AIMLOCK + ESP - LONG BÉO
+    AIMLOCK + ESP - LONG BÉO (FIXED BLACKLIST PERSIST)
     - [Q] Bật/tắt Aimlock
     - [B] Bật/tắt ESP
     - [T] Ẩn/hiện menu (KHÔNG BAO GIỜ bị chặn)
@@ -9,6 +9,7 @@
     - Giữ chuột (đã chọn) = aim
     - Menu MỞ  : chặn game input + khoá chuột
     - Menu ĐÓNG: trả phím về bình thường cho game
+    - BLACKLIST theo PLAYER -> không mất khi reset / qua màn
 ]]
 
 local Players = game:GetService("Players")
@@ -43,7 +44,20 @@ local targetPart = nil
 local lastRetarget = 0
 local espenabled = false
 
-local Blacklist = {}  -- [model] = true
+--============================================================
+-- BLACKLIST (PLAYER theo object, BOT theo model)
+--============================================================
+local BlacklistPlayers = {}  -- [Player] = true
+local BlacklistBots = {}     -- [Model] = true
+
+local function isBlacklisted(model)
+    if not model then return false end
+    local plr = Players:GetPlayerFromCharacter(model)
+    if plr then
+        return BlacklistPlayers[plr] == true
+    end
+    return BlacklistBots[model] == true
+end
 
 local uiRefs = { toggles = {} }
 
@@ -90,6 +104,12 @@ local function getBots()
     if now - lastBotScan >= Config.BotScanRate then
         lastBotScan = now
         botCache = scanBots()
+        -- Dọn blacklist bot đã biến mất
+        for model, _ in pairs(BlacklistBots) do
+            if not model.Parent then
+                BlacklistBots[model] = nil
+            end
+        end
     end
     return botCache
 end
@@ -104,7 +124,7 @@ local function rebuildTargetCache()
     local all = {}
 
     for _, v in ipairs(Players:GetPlayers()) do
-        if v ~= localPlayer and v.Character and not Blacklist[v.Character] then
+        if v ~= localPlayer and v.Character and not BlacklistPlayers[v] then
             local hum = v.Character:FindFirstChildOfClass("Humanoid")
             local root = v.Character:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and root then
@@ -120,7 +140,7 @@ local function rebuildTargetCache()
     end
 
     for _, model in ipairs(getBots()) do
-        if not Blacklist[model] then
+        if not BlacklistBots[model] then
             local hum = model:FindFirstChildOfClass("Humanoid")
             local root = model:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and root then
@@ -202,7 +222,7 @@ local function getModelUnderMouse()
 end
 
 --============================================================
--- AIM LOOP (GIỐNG BẢN GỐC)
+-- AIM LOOP
 --============================================================
 RunService.RenderStepped:Connect(function()
     if not AimbotEnabled or not aiming then
@@ -297,7 +317,7 @@ local function updateESP()
     local visible = {}
 
     for _, v in ipairs(Players:GetPlayers()) do
-        if v ~= localPlayer and v.Character and not Blacklist[v.Character] then
+        if v ~= localPlayer and v.Character and not BlacklistPlayers[v] then
             local root = v.Character:FindFirstChild("HumanoidRootPart")
             local hum = v.Character:FindFirstChildOfClass("Humanoid")
             if root and hum and hum.Health > 0 then
@@ -309,7 +329,7 @@ local function updateESP()
     end
 
     for _, model in ipairs(getBots()) do
-        if not Blacklist[model] then
+        if not BlacklistBots[model] then
             local root = model:FindFirstChild("HumanoidRootPart")
             if root then
                 if (root.Position - origin).Magnitude <= range then
@@ -320,7 +340,7 @@ local function updateESP()
     end
 
     for model, _ in pairs(activeHighlights) do
-        if not visible[model] or not model.Parent or Blacklist[model] then
+        if not visible[model] or not model.Parent or isBlacklisted(model) then
             removeHighlightFor(model)
             activeHighlights[model] = nil
         end
@@ -342,9 +362,15 @@ RunService.Heartbeat:Connect(function(dt)
     updateESP()
 end)
 
+-- Khi player reset, ESP vẫn hoạt động nhưng blacklist vẫn giữ theo Player
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         task.wait(0.1)
+        -- Nếu player này nằm trong blacklist thì xoá highlight mới (nếu có)
+        if BlacklistPlayers[player] and character then
+            removeHighlightFor(character)
+            activeHighlights[character] = nil
+        end
         updateESP()
     end)
 end)
@@ -353,6 +379,10 @@ for _, player in ipairs(Players:GetPlayers()) do
     if player ~= localPlayer then
         player.CharacterAdded:Connect(function(character)
             task.wait(0.1)
+            if BlacklistPlayers[player] and character then
+                removeHighlightFor(character)
+                activeHighlights[character] = nil
+            end
             updateESP()
         end)
     end
@@ -507,22 +537,7 @@ local function refreshBlacklistUI()
         if c:IsA("TextButton") or c:IsA("Frame") then c:Destroy() end
     end
 
-    local count = 0
-    for _ in pairs(Blacklist) do count += 1 end
-
-    if count == 0 then
-        local empty = Instance.new("TextLabel", BLPage)
-        empty.Size = UDim2.new(1, 0, 0, 40)
-        empty.BackgroundTransparency = 1
-        empty.Text = "  (Trống — lia chuột + ấn J để loại)"
-        empty.TextColor3 = Color3.fromRGB(150, 150, 160)
-        empty.Font = Enum.Font.Gotham
-        empty.TextSize = 11
-        empty.TextXAlignment = Enum.TextXAlignment.Left
-        return
-    end
-
-    for model, _ in pairs(Blacklist) do
+    local function addRow(displayName, onRemove)
         local row = Instance.new("Frame", BLPage)
         row.Size = UDim2.new(1, 0, 0, 34)
         row.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
@@ -533,7 +548,7 @@ local function refreshBlacklistUI()
         nameLbl.Size = UDim2.new(1, -70, 1, 0)
         nameLbl.Position = UDim2.new(0, 8, 0, 0)
         nameLbl.BackgroundTransparency = 1
-        nameLbl.Text = getDisplayName(model)
+        nameLbl.Text = displayName
         nameLbl.TextColor3 = Color3.new(1, 1, 1)
         nameLbl.Font = Enum.Font.GothamMedium
         nameLbl.TextSize = 12
@@ -550,17 +565,43 @@ local function refreshBlacklistUI()
         removeBtn.TextSize = 11
         removeBtn.BorderSizePixel = 0
         Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0, 6)
-
         removeBtn.MouseButton1Click:Connect(function()
-            Blacklist[model] = nil
+            onRemove()
             refreshBlacklistUI()
             updateESP()
         end)
     end
+
+    local count = 0
+    for plr, _ in pairs(BlacklistPlayers) do
+        count += 1
+        addRow("[P] " .. plr.Name, function()
+            BlacklistPlayers[plr] = nil
+        end)
+    end
+    for model, _ in pairs(BlacklistBots) do
+        count += 1
+        local name = getDisplayName(model)
+        addRow("[B] " .. name, function()
+            BlacklistBots[model] = nil
+        end)
+    end
+
+    if count == 0 then
+        local empty = Instance.new("TextLabel", BLPage)
+        empty.Size = UDim2.new(1, 0, 0, 40)
+        empty.BackgroundTransparency = 1
+        empty.Text = "  (Trống — lia chuột + ấn J để loại)"
+        empty.TextColor3 = Color3.fromRGB(150, 150, 160)
+        empty.Font = Enum.Font.Gotham
+        empty.TextSize = 11
+        empty.TextXAlignment = Enum.TextXAlignment.Left
+    end
 end
 
 BLClearAll.MouseButton1Click:Connect(function()
-    Blacklist = {}
+    BlacklistPlayers = {}
+    BlacklistBots = {}
     refreshBlacklistUI()
     updateESP()
 end)
@@ -594,7 +635,7 @@ local function setMenuVisible(visible)
 end
 
 --============================================================
--- HÀM ĐỒNG BỘ UI
+-- ĐỒNG BỘ UI
 --============================================================
 local function updateAllUI()
     for _, ref in ipairs(uiRefs.toggles) do
@@ -893,14 +934,30 @@ local function handleScriptKey(actionName, inputState, inputObject)
         elseif key == Enum.KeyCode.J then
             local model = getModelUnderMouse()
             if model then
-                if Blacklist[model] then
-                    Blacklist[model] = nil
+                local plr = Players:GetPlayerFromCharacter(model)
+                if plr then
+                    -- PLAYER: toggle theo Player object -> bền qua reset
+                    if BlacklistPlayers[plr] then
+                        BlacklistPlayers[plr] = nil
+                    else
+                        BlacklistPlayers[plr] = true
+                        removeHighlightFor(model)
+                        activeHighlights[model] = nil
+                        if targetPart and targetPart:FindFirstAncestorOfClass("Model") == model then
+                            targetPart = nil
+                        end
+                    end
                 else
-                    Blacklist[model] = true
-                    removeHighlightFor(model)
-                    activeHighlights[model] = nil
-                    if targetPart and targetPart:FindFirstAncestorOfClass("Model") == model then
-                        targetPart = nil
+                    -- BOT: toggle theo model
+                    if BlacklistBots[model] then
+                        BlacklistBots[model] = nil
+                    else
+                        BlacklistBots[model] = true
+                        removeHighlightFor(model)
+                        activeHighlights[model] = nil
+                        if targetPart and targetPart:FindFirstAncestorOfClass("Model") == model then
+                            targetPart = nil
+                        end
                     end
                 end
                 if BlacklistPanel.Visible then refreshBlacklistUI() end
@@ -963,10 +1020,11 @@ UserInputService.InputEnded:Connect(function(input, isProcessed)
 end)
 
 print("═══════════════════════════════════════════════")
-print("  AIMLOCK + ESP - LONG BÉO")
+print("  AIMLOCK + ESP - LONG BÉO (FIXED BLACKLIST)")
 print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
 print("  [J] Loại người  [L] Blacklist (có Bỏ All)")
 print("  ESP: Player ĐỎ | Bot VÀNG")
+print("  Blacklist PLAYER bền qua reset / qua màn")
 print("  Menu MỞ  : chặn input game + khoá chuột")
 print("  Menu ĐÓNG: trả phím về bình thường")
 print("  [T] KHÔNG BAO GIỜ bị chặn")
