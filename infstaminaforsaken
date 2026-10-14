@@ -1,0 +1,76 @@
+--[[
+    Forsaken - INF Stamina (Silent / Logic Only)
+    - Vô hạn thể lực thực sự (reset liên tục + tắt drain)
+    - UI hiển thị "1" nhưng thực tế luôn full
+    - Không GUI, không thông báo
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+
+-- Lấy module Sprinting
+local sprintingModule = require(ReplicatedStorage.Systems.Character.Game.Sprinting)
+
+-- ═══════════════════════════════════════════════════════════════
+-- 1. LOGIC VÔ HẠN THỰC SỰ
+-- ═══════════════════════════════════════════════════════════════
+
+-- Tắt mất thể lực hoàn toàn
+sprintingModule.StaminaLossDisabled = true
+sprintingModule.StaminaLoss = 0
+sprintingModule.StaminaGain = 999999
+sprintingModule.MaxStamina = math.huge
+
+-- Vòng lặp reset Stamina về Max mỗi 0.1s
+-- Đảm bảo dù game có drain thế nào, stamina luôn full
+task.spawn(function()
+    while task.wait(0.1) do
+        pcall(function()
+            sprintingModule.Stamina = sprintingModule.MaxStamina
+
+            if sprintingModule.__staminaChangedEvent then
+                sprintingModule.__staminaChangedEvent:Fire(sprintingModule.Stamina)
+            elseif sprintingModule.StaminaChanged then
+                sprintingModule.StaminaChanged:Fire(sprintingModule.Stamina)
+            end
+        end)
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════════
+-- 2. UI HIỂN THỊ "1" (nhưng thực tế là vô hạn)
+-- ═══════════════════════════════════════════════════════════════
+
+local function fakeStaminaUI()
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+
+    for _, gui in ipairs(playerGui:GetDescendants()) do
+        local nameLower = gui.Name:lower()
+
+        if gui:IsA("TextLabel") and (nameLower:find("stamina") or nameLower:find("sprint")) then
+            gui.Text = "1"
+
+            -- Khóa không cho game ghi đè
+            if not gui:GetAttribute("INF_Fake") then
+                gui:SetAttribute("INF_Fake", true)
+                gui:GetPropertyChangedSignal("Text"):Connect(function()
+                    if gui.Text ~= "1" then
+                        gui.Text = "1"
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- Chạy lần đầu + chạy lại mỗi 2s để bắt UI mới
+task.spawn(function()
+    task.wait(2)
+    fakeStaminaUI()
+    while task.wait(2) do
+        fakeStaminaUI()
+    end
+end)
