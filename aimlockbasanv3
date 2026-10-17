@@ -11,7 +11,7 @@
     - Menu ĐÓNG: trả phím về bình thường cho game
     - BLACKLIST theo PLAYER -> không mất khi reset / qua màn
     - AIM DÙNG CHUNG RANGE VỚI ESP (Config.ESPRange)
-    - [UPDATE] Ưu tiên aim Player gần nhất (3D), không có mới aim Bot
+    - [UPDATE] Aim mục tiêu gần mình nhất (3D) bất kể Player hay Bot
 ]]
 
 local Players = game:GetService("Players")
@@ -34,7 +34,7 @@ local Config = {
     RetargetTime    = 0.15,
     FOV             = 150,
     ESPRange        = 500,
-    PriorityPlayer  = true,
+    PriorityPlayer  = true, -- Đã tắt tác dụng của biến này ở hàm getBestTarget
     ESPUpdateRate   = 0.1,
     BotScanRate     = 1.0,
     AimKey          = Enum.UserInputType.MouseButton1,
@@ -117,7 +117,7 @@ local function getBots()
 end
 
 --============================================================
--- AIM TARGET (FOV + RANGE = ESPRange) - ĐÃ CẬP NHẬT
+-- AIM TARGET (CHỌN MỤC TIÊU GẦN NHẤT 3D)
 --============================================================
 local targetCache = {}
 local lastTargetScan = 0
@@ -164,6 +164,7 @@ local function getBestTarget()
     local cam = workspace.CurrentCamera
     if not cam then return nil end
 
+    -- Cập nhật lại danh sách mục tiêu nếu đã hết thời gian chờ
     local now = tick()
     if now - lastTargetScan >= Config.RetargetTime then
         lastTargetScan = now
@@ -172,52 +173,34 @@ local function getBestTarget()
 
     local viewport = cam.ViewportSize
     local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
-    local camPos = cam.CFrame.Position
+    
+    -- Lấy vị trí nhân vật của bạn để đo khoảng cách 3D
+    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local originPos = myRoot and myRoot.Position or cam.CFrame.Position
 
-    -- BƯỚC 1: TÌM PLAYER GẦN NHẤT (THEO KHOẢNG CÁCH 3D)
-    local nearestPlayerPart, nearestPlayerDist = nil, math.huge
+    local bestPart, bestDist = nil, math.huge
 
     for _, t in ipairs(targetCache) do
-        if not t.isBot and t.part.Parent and t.root.Parent then
-            local dist3D = (t.root.Position - camPos).Magnitude
+        if t.part.Parent and t.root.Parent then
+            local dist3D = (t.root.Position - originPos).Magnitude
+            
+            -- 1. Phải nằm trong tầm ESP RANGE
             if dist3D <= Config.ESPRange then
                 local sp, onScreen = cam:WorldToViewportPoint(t.part.Position)
+                
+                -- 2. Phải nằm trên màn hình (không bị khuất sau lưng)
                 if onScreen and sp.Z > 0 then
                     local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                    
+                    -- 3. Phải nằm trong vòng tròn FOV (nếu bạn muốn bỏ qua FOV thì xóa dòng if này)
                     if distToCenter <= Config.FOV then
-                        if dist3D < nearestPlayerDist then
-                            nearestPlayerDist = dist3D
-                            nearestPlayerPart = t.part
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    -- NẾU CÓ PLAYER TRONG TẦM, TRẢ VỀ LUÔN
-    if nearestPlayerPart then
-        return nearestPlayerPart
-    end
-
-    -- BƯỚC 2: NẾU KHÔNG CÓ PLAYER, CHẠY LOGIC CŨ ĐỂ TÌM BOT
-    local bestPart, bestDist = nil, math.huge
-    for _, t in ipairs(targetCache) do
-        if t.isBot and t.part.Parent and t.root.Parent then
-            if (t.root.Position - camPos).Magnitude <= Config.ESPRange then
-                local sp, onScreen = cam:WorldToViewportPoint(t.part.Position)
-                if onScreen and sp.Z > 0 then
-                    local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                    if distToCenter <= Config.FOV then
-                        local weight = 1
-                        if Config.PriorityPlayer and t.isBot then
-                            weight = 1.5
-                        end
-                        local weighted = distToCenter * weight
-                        if weighted < bestDist then
-                            bestDist = weighted
+                        
+                        -- LOGIC MỚI: Chọn thằng có khoảng cách 3D gần mình nhất
+                        if dist3D < bestDist then
+                            bestDist = dist3D
                             bestPart = t.part
                         end
+                        
                     end
                 end
             end
@@ -393,7 +376,6 @@ RunService.Heartbeat:Connect(function(dt)
     updateESP()
 end)
 
--- Khi player reset, ESP vẫn hoạt động nhưng blacklist vẫn giữ theo Player
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         task.wait(0.1)
@@ -498,9 +480,6 @@ Page.ScrollBarImageColor3 = MainColor
 Page.CanvasSize = UDim2.new(0, 0, 0, 620)
 Instance.new("UIListLayout", Page).Padding = UDim.new(0, 6)
 
---============================================================
--- BLACKLIST PANEL
---============================================================
 local BlacklistPanel = Instance.new("Frame", ScreenGui)
 BlacklistPanel.Size = UDim2.new(0, 280, 0, 360)
 BlacklistPanel.Position = UDim2.new(0, 320, 0.5, -180)
@@ -640,9 +619,6 @@ BLClose.MouseButton1Click:Connect(function()
     BlacklistPanel.Visible = false
 end)
 
---============================================================
--- HÀM MỞ / ĐÓNG MENU
---============================================================
 local savedMouseBehavior = nil
 local savedMouseIcon = nil
 
@@ -664,9 +640,6 @@ local function setMenuVisible(visible)
     end
 end
 
---============================================================
--- ĐỒNG BỘ UI
---============================================================
 local function updateAllUI()
     for _, ref in ipairs(uiRefs.toggles) do
         if ref and ref.refresh then
@@ -678,9 +651,6 @@ local function updateAllUI()
     end
 end
 
---============================================================
--- TOGGLE
---============================================================
 local function createToggle(name, configKey)
     local btn = Instance.new("TextButton", Page)
     btn.Size = UDim2.new(1, 0, 0, 34)
@@ -734,9 +704,6 @@ local function createToggle(name, configKey)
     return btn
 end
 
---============================================================
--- SLIDER
---============================================================
 local function createSlider(name, minV, maxV, defV, callback)
     local frame = Instance.new("Frame", Page)
     frame.Size = UDim2.new(1, 0, 0, 48)
@@ -805,11 +772,9 @@ local function createSlider(name, minV, maxV, defV, callback)
     setVal((defV - minV) / (maxV - minV))
 end
 
---============================================================
--- TẠO UI
---============================================================
 createToggle("AIMLOCK (Q)", "AimbotEnabled")
 createToggle("ESP (B)", "espenabled")
+-- Giữ nút này cho đủ giao diện, nhưng thực tế logic đã bị ép thành aim gần nhất rồi
 createToggle("Ưu tiên Player hơn Bot", "PriorityPlayer")
 
 local AimKeyButton = Instance.new("TextButton", Page)
@@ -890,9 +855,6 @@ CloseBtn.MouseButton1Click:Connect(function()
     setMenuVisible(false)
 end)
 
---============================================================
--- CHẶN INPUT GAME KHI MENU MỞ
---============================================================
 local HIGH_PRIORITY = 2147483647
 
 local GAME_KEYS = {
@@ -939,9 +901,6 @@ ContextActionService:BindActionAtPriority(
     Enum.UserInputType.MouseButton2
 )
 
---============================================================
--- XỬ LÝ Q / B / H / J / L
---============================================================
 local function handleScriptKey(actionName, inputState, inputObject)
     if inputState == Enum.UserInputState.Begin then
         local key = inputObject.KeyCode
@@ -966,7 +925,6 @@ local function handleScriptKey(actionName, inputState, inputObject)
             if model then
                 local plr = Players:GetPlayerFromCharacter(model)
                 if plr then
-                    -- PLAYER: toggle theo Player object -> bền qua reset
                     if BlacklistPlayers[plr] then
                         BlacklistPlayers[plr] = nil
                     else
@@ -978,7 +936,6 @@ local function handleScriptKey(actionName, inputState, inputObject)
                         end
                     end
                 else
-                    -- BOT: toggle theo model
                     if BlacklistBots[model] then
                         BlacklistBots[model] = nil
                     else
@@ -1014,9 +971,6 @@ for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.B, Enum.KeyCode.H, Enum.KeyCo
     )
 end
 
---============================================================
--- RIÊNG PHÍM T: LUÔN PASS
---============================================================
 local function handleMenuKey(actionName, inputState, inputObject)
     if inputState == Enum.UserInputState.Begin then
         setMenuVisible(not Main.Visible)
@@ -1032,9 +986,6 @@ ContextActionService:BindActionAtPriority(
     Enum.KeyCode.T
 )
 
---============================================================
--- INPUT CHUỘT AIM
---============================================================
 UserInputService.InputBegan:Connect(function(input, isProcessed)
     if isProcessed then return end
     if not Main.Visible and input.UserInputType == Config.AimKey then
