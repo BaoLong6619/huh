@@ -11,6 +11,7 @@
     - Menu ĐÓNG: trả phím về bình thường cho game
     - BLACKLIST theo PLAYER -> không mất khi reset / qua màn
     - AIM DÙNG CHUNG RANGE VỚI ESP (Config.ESPRange)
+    - [UPDATE] Ưu tiên aim Player gần nhất (3D), không có mới aim Bot
 ]]
 
 local Players = game:GetService("Players")
@@ -116,7 +117,7 @@ local function getBots()
 end
 
 --============================================================
--- AIM TARGET (FOV + RANGE = ESPRange)
+-- AIM TARGET (FOV + RANGE = ESPRange) - ĐÃ CẬP NHẬT
 --============================================================
 local targetCache = {}
 local lastTargetScan = 0
@@ -173,11 +174,36 @@ local function getBestTarget()
     local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
     local camPos = cam.CFrame.Position
 
-    local bestPart, bestDist = nil, math.huge
+    -- BƯỚC 1: TÌM PLAYER GẦN NHẤT (THEO KHOẢNG CÁCH 3D)
+    local nearestPlayerPart, nearestPlayerDist = nil, math.huge
 
     for _, t in ipairs(targetCache) do
-        if t.part.Parent and t.root.Parent then
-            -- ⬇️ LỌC RANGE = ESPRange (giống hệt ESP)
+        if not t.isBot and t.part.Parent and t.root.Parent then
+            local dist3D = (t.root.Position - camPos).Magnitude
+            if dist3D <= Config.ESPRange then
+                local sp, onScreen = cam:WorldToViewportPoint(t.part.Position)
+                if onScreen and sp.Z > 0 then
+                    local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                    if distToCenter <= Config.FOV then
+                        if dist3D < nearestPlayerDist then
+                            nearestPlayerDist = dist3D
+                            nearestPlayerPart = t.part
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- NẾU CÓ PLAYER TRONG TẦM, TRẢ VỀ LUÔN
+    if nearestPlayerPart then
+        return nearestPlayerPart
+    end
+
+    -- BƯỚC 2: NẾU KHÔNG CÓ PLAYER, CHẠY LOGIC CŨ ĐỂ TÌM BOT
+    local bestPart, bestDist = nil, math.huge
+    for _, t in ipairs(targetCache) do
+        if t.isBot and t.part.Parent and t.root.Parent then
             if (t.root.Position - camPos).Magnitude <= Config.ESPRange then
                 local sp, onScreen = cam:WorldToViewportPoint(t.part.Position)
                 if onScreen and sp.Z > 0 then
@@ -227,7 +253,7 @@ local function getModelUnderMouse()
 end
 
 --============================================================
--- AIM LOOP (KHÔNG đổi logic gì, chỉ range check nằm trong getBestTarget rồi)
+-- AIM LOOP
 --============================================================
 RunService.RenderStepped:Connect(function()
     if not AimbotEnabled or not aiming then
@@ -371,7 +397,6 @@ end)
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         task.wait(0.1)
-        -- Nếu player này nằm trong blacklist thì xoá highlight mới (nếu có)
         if BlacklistPlayers[player] and character then
             removeHighlightFor(character)
             activeHighlights[character] = nil
