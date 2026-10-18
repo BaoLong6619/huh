@@ -1021,7 +1021,7 @@ function syncDiscordVisibility()
 end
 
 DiscordBtn.MouseButton1Click:Connect(function()
-    setclipboard("https://discord.gg/kRfzv2kV7X")
+    setclipboard("https://notevn.com/raw/bds2kz5u")
     getgenv().LongGui({Title = "Discord", Content = "The Discord invite has been copied", Duration = 3})
 end)
 
