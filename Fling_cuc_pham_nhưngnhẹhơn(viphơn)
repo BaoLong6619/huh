@@ -279,7 +279,7 @@ end)
 local function GetClosestPlayerToMouse()
     local mousePos = Vector2.new(Mouse.X, Mouse.Y)
     local closestPlayer = nil
-    local shortestDist = 300 -- Bán kính tìm kiếm (pixel)
+    local shortestDist = 300
 
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= Player and p.Character then
@@ -311,7 +311,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- ================= [HÀM FLING LÕI - GIẢM LỰC] =================
+-- ================= [HÀM FLING LÕI - NẢY LÊN XUỐNG] =================
 local function SkidFling(TargetPlayer)
     local Character = Player.Character
     local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
@@ -356,56 +356,37 @@ local function SkidFling(TargetPlayer)
         
         if not TCharacter:FindFirstChildWhichIsA("BasePart") then return end
         
-        local FPos = function(BasePart, Pos, Ang)
+        local FPos = function(BasePart, Pos, Ang, YVel)
             RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
             Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
             
-            -- LỰC 45,000
-            RootPart.Velocity = Vector3.new(45000, 45000, 45000)
-            RootPart.RotVelocity = Vector3.new(45000, 45000, 45000)
+            -- BƠM LỰC THEO TRỤC Y ĐỂ NẢY
+            RootPart.Velocity = Vector3.new(0, YVel, 0)
+            RootPart.RotVelocity = Vector3.new(0, 0, 0)
         end
         
         local SFBasePart = function(BasePart)
-            local TimeToWait = 2
+            local TimeToWait = 3 -- Chạy trong 3 giây
             local Time = tick()
             local Angle = 0
+            local direction = -1 -- Bắt đầu đẩy xuống (-1)
+            
             repeat
-                if BasePart and BasePart.Velocity.Magnitude > 150 then
+                if BasePart and BasePart.Velocity.Magnitude > 100 then
                     break 
                 end
 
                 if RootPart and THumanoid then
-                    if BasePart.Velocity.Magnitude < 50 then
-                        Angle = Angle + 100
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                    else
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                    end
+                    -- Chuyển hướng đẩy liên tục (lên/xuống)
+                    direction = direction * -1 
+                    local force = direction * 10000 -- Lực 15000, đảo chiều liên tục
+                    
+                    Angle = Angle + 100
+                    FPos(BasePart, CFrame.new(0, 1.5, 0), CFrame.Angles(math.rad(Angle),0 ,0), force)
+                    task.wait()
+                    FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(Angle), 0, 0), force)
+                    task.wait()
+                    
                 end
             until Time + TimeToWait < tick() or not FlingActive
         end
