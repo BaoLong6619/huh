@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
 
 -- Global Variables
 getgenv().OldPos = nil
@@ -119,7 +120,7 @@ end)
 ------------------- [FLING PAGE] -------------------
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Position = UDim2.new(0, 12, 0, 5)
-StatusLabel.Size = UDim2.new(1, -24, 0, 20)
+StatusLabel.Size = UDim2.new(1, -90, 0, 20)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "Select a target below"
 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -127,6 +128,18 @@ StatusLabel.Font = Enum.Font.SourceSans
 StatusLabel.TextSize = 14
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 StatusLabel.Parent = FlingPage
+
+local ClickSelectBtn = Instance.new("TextButton")
+ClickSelectBtn.Position = UDim2.new(1, -80, 0, 2)
+ClickSelectBtn.Size = UDim2.new(0, 70, 0, 24)
+ClickSelectBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ClickSelectBtn.BorderSizePixel = 0
+ClickSelectBtn.Text = "🎯 Hover (T)"
+ClickSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ClickSelectBtn.Font = Enum.Font.SourceSansBold
+ClickSelectBtn.TextSize = 11
+ClickSelectBtn.Parent = FlingPage
+Instance.new("UICorner", ClickSelectBtn).CornerRadius = UDim.new(0, 4)
 
 local SearchBox = Instance.new("TextBox")
 SearchBox.Position = UDim2.new(0, 12, 0, 30)
@@ -202,6 +215,21 @@ local function UpdateStatus()
     end
 end
 
+local function SetSelectedTarget(targetPlayer)
+    SelectedTarget = targetPlayer
+    for _, child in pairs(PlayerListFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            if child.Name == targetPlayer.Name then
+                child.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+            else
+                child.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            end
+        end
+    end
+    UpdateStatus()
+    Message("Selected", "Target: " .. targetPlayer.DisplayName, 2)
+end
+
 local SearchFilter = ""
 local function UpdatePlayerList()
     for _, child in pairs(PlayerListFrame:GetChildren()) do
@@ -227,13 +255,7 @@ local function UpdatePlayerList()
                 Instance.new("UICorner", OptionBtn).CornerRadius = UDim.new(0, 4)
 
                 OptionBtn.MouseButton1Click:Connect(function()
-                    -- Single Select (Chỉ chọn 1 người)
-                    for _, child in pairs(PlayerListFrame:GetChildren()) do
-                        if child:IsA("TextButton") then child.BackgroundColor3 = Color3.fromRGB(35, 35, 35) end
-                    end
-                    OptionBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-                    SelectedTarget = p
-                    UpdateStatus()
+                    SetSelectedTarget(p)
                 end)
             end
         end
@@ -252,7 +274,33 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
--- ================= [HÀM FLING LÕI - SINGLE TARGET, 1.2S, AUTO OFF] =================
+-- ================= [PHÍM T ĐỂ CHỌN KHI RÊ CHUỘT] =================
+local function GetHoveredPlayer()
+    local target = Mouse.Target
+    if target then
+        local character = target.Parent
+        local plr = Players:GetPlayerFromCharacter(character)
+        if not plr and character and character.Parent then
+            plr = Players:GetPlayerFromCharacter(character.Parent)
+        end
+        return plr
+    end
+    return nil
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        local hoveredPlr = GetHoveredPlayer()
+        if hoveredPlr and hoveredPlr ~= Player then
+            SetSelectedTarget(hoveredPlr)
+        else
+            Message("Lỗi", "Hãy rê chuột vào người chơi trước khi ấn T!", 2)
+        end
+    end
+end)
+
+-- ================= [HÀM FLING LÕI - GIẢM LỰC] =================
 local function SkidFling(TargetPlayer)
     local Character = Player.Character
     local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
@@ -300,17 +348,18 @@ local function SkidFling(TargetPlayer)
         local FPos = function(BasePart, Pos, Ang)
             RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
             Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
-            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+            
+            -- LỰC 45,000 (Nhẹ hơn nhưng vẫn đủ bay)
+            RootPart.Velocity = Vector3.new(45000, 45000, 45000)
+            RootPart.RotVelocity = Vector3.new(45000, 45000, 45000)
         end
         
         local SFBasePart = function(BasePart)
-            local TimeToWait = 1.2 -- CHỈNH XUỐNG 1.2 GIÂY
+            local TimeToWait = 2
             local Time = tick()
             local Angle = 0
             repeat
-                -- Tự dừng nếu mục tiêu bay với vận tốc cao
-                if BasePart and BasePart.Velocity.Magnitude > 500 then
+                if BasePart and BasePart.Velocity.Magnitude > 150 then
                     break 
                 end
 
@@ -393,8 +442,8 @@ local function SkidFling(TargetPlayer)
     end
 end
 
--- Kết nối nút bấm
-StartButton.MouseButton1Click:Connect(function()
+-- Hàm kích hoạt Fling
+local function StartFling()
     if not SelectedTarget then
         Message("Lỗi", "Chưa chọn mục tiêu!", 3)
         return
@@ -404,20 +453,27 @@ StartButton.MouseButton1Click:Connect(function()
     UpdateStatus()
     
     task.spawn(function()
-        -- Chạy Fling 1 lần duy nhất
         SkidFling(SelectedTarget)
-        
-        -- Tự động tắt trạng thái Fling khi xong
         FlingActive = false
         UpdateStatus()
-        Message("Finished", "Đã fling xong mục tiêu!", 2)
+        Message("Finished", "Đã fling xong!", 2)
     end)
-end)
+end
+
+-- Kết nối nút bấm
+StartButton.MouseButton1Click:Connect(StartFling)
 
 StopButton.MouseButton1Click:Connect(function()
     FlingActive = false
     UpdateStatus()
     Message("Stopped", "Đã dừng fling.", 2)
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.R then
+        StartFling()
+    end
 end)
 
 Players.PlayerAdded:Connect(function() task.wait(1) UpdatePlayerList() end)
