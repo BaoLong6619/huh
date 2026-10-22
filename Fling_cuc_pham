@@ -1,5 +1,3 @@
-
-
 -- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -170,6 +168,11 @@ ToggleButton.MouseButton1Click:Connect(function()
     Visible = not Visible
     ContentFrame.Visible = Visible
     ToggleButton.BackgroundColor3 = Visible and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(80, 255, 80)
+end)
+
+-- Close Button Logic
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
 end)
 
 ------------------- [FLING PAGE ELEMENTS] -------------------
@@ -504,7 +507,69 @@ SearchTextBox:GetPropertyChangedSignal("Text"):Connect(function()
     UpdatePlayerListNonDestructive()
 end)
 
--- BÊ Y NGUYÊN GỐC HÀM FLING CỦA SCRIPT 1 (FIXED ĐẦY ĐỦ LOGIC)
+-- ================= [PHẦN BỔ SUNG ĐỂ SCRIPT CHẠY ĐƯỢC] =================
+-- Hàm SkidFling hoàn chỉnh (giữ đúng logic fling gốc: velocity spam + CFrame)
 local function SkidFling(TargetPlayer)
     local Character = Player.Character
-    local Humanoid = Character and Character:FindF
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Character and Character:FindFirstChild("HumanoidRootPart")
+    if not Humanoid or not RootPart or Humanoid.Health <= 0 then return end
+
+    local TCharacter = TargetPlayer.Character
+    local THumanoid = TCharacter and TCharacter:FindFirstChildOfClass("Humanoid")
+    local TRootPart = TCharacter and TCharacter:FindFirstChild("HumanoidRootPart")
+    if not THumanoid or not TRootPart or THumanoid.Health <= 0 then return end
+
+    -- Kiểm tra khoảng cách (chỉ fling khi đủ gần)
+    local distance = (RootPart.Position - TRootPart.Position).Magnitude
+    if distance > 30 then return end
+
+    -- Logic fling: spam velocity + teleport CFrame vào target
+    pcall(function()
+        RootPart.Velocity = Vector3.new(0, 0, 0)
+        RootPart.CFrame = TRootPart.CFrame * CFrame.new(0, 0, 0)
+        RootPart.Velocity = Vector3.new(999999, 999999, 999999)
+        TRootPart.Velocity = Vector3.new(-999999, -999999, -999999)
+    end)
+end
+
+-- Nối nút START
+StartButton.MouseButton1Click:Connect(function()
+    if CountSelectedTargets() == 0 then
+        Message("Lỗi", "Chưa chọn mục tiêu để fling!", 3)
+        return
+    end
+    FlingActive = true
+    UpdateStatus()
+    Message("Started", "Đang fling mục tiêu...", 2)
+end)
+
+-- Nối nút STOP
+StopButton.MouseButton1Click:Connect(function()
+    StopFling()
+end)
+
+-- Vòng lặp fling chính
+RunService.Heartbeat:Connect(function()
+    if not FlingActive then return end
+    for _, target in pairs(SelectedTargets) do
+        pcall(SkidFling, target)
+    end
+end)
+
+-- Cập nhật danh sách player khi có người vào/ra
+Players.PlayerAdded:Connect(function()
+    task.wait(1)
+    UpdatePlayerListNonDestructive()
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    SelectedTargets[p.Name] = nil
+    UpdatePlayerListNonDestructive()
+    UpdateStatus()
+end)
+
+-- Khởi tạo danh sách player lần đầu
+UpdatePlayerListNonDestructive()
+UpdateStatus()
+-- ================= [KẾT THÚC PHẦN BỔ SUNG] =================
