@@ -5,6 +5,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
+local Camera = workspace.CurrentCamera
 
 -- Global Variables
 getgenv().OldPos = nil
@@ -134,7 +135,7 @@ ClickSelectBtn.Position = UDim2.new(1, -80, 0, 2)
 ClickSelectBtn.Size = UDim2.new(0, 70, 0, 24)
 ClickSelectBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 ClickSelectBtn.BorderSizePixel = 0
-ClickSelectBtn.Text = "🎯 Hover (T)"
+ClickSelectBtn.Text = "🎯 Auto (T)"
 ClickSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ClickSelectBtn.Font = Enum.Font.SourceSansBold
 ClickSelectBtn.TextSize = 11
@@ -274,28 +275,38 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     end
 end)
 
--- ================= [PHÍM T ĐỂ CHỌN KHI RÊ CHUỘT] =================
-local function GetHoveredPlayer()
-    local target = Mouse.Target
-    if target then
-        local character = target.Parent
-        local plr = Players:GetPlayerFromCharacter(character)
-        if not plr and character and character.Parent then
-            plr = Players:GetPlayerFromCharacter(character.Parent)
+-- ================= [CHỌN NGƯỜI GẦN CHUỘT NHẤT KHI ẤN T] =================
+local function GetClosestPlayerToMouse()
+    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+    local closestPlayer = nil
+    local shortestDist = 300 -- Bán kính tìm kiếm (pixel)
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local screenPos, onScreen = Camera:WorldToScreenPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestPlayer = p
+                    end
+                end
+            end
         end
-        return plr
     end
-    return nil
+    return closestPlayer
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.T then
-        local hoveredPlr = GetHoveredPlayer()
-        if hoveredPlr and hoveredPlr ~= Player then
-            SetSelectedTarget(hoveredPlr)
+        local closestPlr = GetClosestPlayerToMouse()
+        if closestPlr then
+            SetSelectedTarget(closestPlr)
         else
-            Message("Lỗi", "Hãy rê chuột vào người chơi trước khi ấn T!", 2)
+            Message("Lỗi", "Không có ai ở gần chuột!", 2)
         end
     end
 end)
@@ -349,7 +360,7 @@ local function SkidFling(TargetPlayer)
             RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
             Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
             
-            -- LỰC 45,000 (Nhẹ hơn nhưng vẫn đủ bay)
+            -- LỰC 45,000
             RootPart.Velocity = Vector3.new(45000, 45000, 45000)
             RootPart.RotVelocity = Vector3.new(45000, 45000, 45000)
         end
