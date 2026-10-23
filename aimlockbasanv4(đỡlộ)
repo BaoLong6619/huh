@@ -1,20 +1,8 @@
 --[[
-    AIMLOCK + ESP - LONG BÉO (FIXED BLACKLIST PERSIST)
-    - [Q] Bật/tắt Aimlock
-    - [B] Bật/tắt ESP
-    - [T] Ẩn/hiện menu (KHÔNG BAO GIỜ bị chặn)
-    - [H] Đổi phím aim: Chuột TRÁI ↔ Chuột PHẢI
-    - [J] Loại người dưới chuột khỏi aim + ESP (ấn lại để bỏ)
-    - [L] Mở/đóng BLACKLIST (có nút Bỏ + Bỏ tất cả)
-    - Giữ chuột (đã chọn) = aim
-    - Menu MỞ  : chặn game input + khoá chuột
-    - Menu ĐÓNG: trả phím về bình thường cho game
-    - BLACKLIST theo PLAYER -> không mất khi reset / qua màn
-    - AIM DÙNG CHUNG RANGE VỚI ESP (Config.ESPRange)
-    - Aim gần mình nhất (3D). Nếu 2 mục tiêu chênh < DIST_EPSILON
-      thì ưu tiên thằng gần chuột hơn (tâm FOV).
-    - AimSpeed = 0.09 (mượt, khó lộ)
-    - [FIX] Aim đầu triệt để: 4 lớp fallback, hoạt động cả ở khoảng cách xa
+    AIMLOCK + ESP - LONG BÉO (FIX LỆCH TÂM - ỔN ĐỊNH)
+    - Tâm aim tự động bù trừ (AIM_OFFSET_Y) để không bị lệch xuống cổ.
+    - Khóa mục tiêu khi đang bắn (không nhảy lung tung).
+    - Fix lỗi khoảng cách xa bị aim vào ngực.
 ]]
 
 local Players = game:GetService("Players")
@@ -33,10 +21,11 @@ local FILL_TRANSPARENCY = 0.5
 local OUTLINE_TRANSPARENCY = 0
 
 --============================================================
--- CẤU HÌNH
+-- CẤU HÌNH TINH CHỈNH
 --============================================================
-local DIST_EPSILON = 20       -- ưu tiên chuột khi chênh 3D < ngưỡng này
-local DEBUG_AIM_PART = false  -- bật true để xem part đang aim (debug)
+-- Nếu thấy tâm aim vẫn bị thấp (nhắm vào cổ), hãy tăng số này lên (VD: 0.5 hoặc 1.0)
+-- Nếu thấy tâm aim bị cao (nhắm lên trời), hãy giảm xuống (VD: -0.5)
+local AIM_OFFSET_Y = 0.3 
 
 local Config = {
     AimSpeed        = 0.09,
@@ -51,7 +40,7 @@ local Config = {
 
 local AimbotEnabled = false
 local aiming = false
-local targetPart = nil
+local targetCharacter = nil
 local lastRetarget = 0
 local espenabled = false
 
@@ -74,9 +63,6 @@ local uiRefs = { toggles = {} }
 
 local hasMouseMoveRel = (type(mousemoverel) == "function")
 local hasMouseMoveAbs = (type(mousemoveabs) == "function")
-
-print("[AIMLOCK] mousemoverel:", hasMouseMoveRel and "OK" or "NIL")
-print("[AIMLOCK] mousemoveabs:", hasMouseMoveAbs and "OK" or "NIL")
 
 --============================================================
 -- BOT DETECTION
@@ -125,90 +111,65 @@ local function getBots()
 end
 
 --============================================================
--- CHỌN VỊ TRÍ AIM (4 LỚP FALLBACK, HOẠT ĐỘNG CẢ Ở XA)
--- Trả về Vector3 thay vì BasePart để có thể offset lên đầu
+-- CHỌN VỊ TRÍ AIM CHÍNH XÁC (FIX LỆCH)
 --============================================================
 local HEAD_NAMES = {
     "HeadHB", "Head", "head", "HeadHitbox", "HitboxHead",
     "HeadMesh", "HeadPart", "Head1", "Head_2",
-    "Hat", "HatPart",
 }
 
-local function getAimPosition(character)
+local function getHeadPart(character)
     if not character or not character.Parent then return nil end
-
-    -- LỚP 1: tìm theo tên phổ biến (bao gồm cả trong Accessory/Hat)
     for _, name in ipairs(HEAD_NAMES) do
-        local p = character:FindFirstChild(name, true)  -- true = tìm cả descendants
-        if p and p:IsA("BasePart") then
-            if DEBUG_AIM_PART then
-                print("[AIM] L1 name =", p.Name, "dist =", (p.Position - camera.CFrame.Position).Magnitude)
-            end
-            return p.Position
-        end
+        local p = character:FindFirstChild(name)
+        if p and p:IsA("BasePart") then return p end
     end
-
-    -- LỚP 2: tìm bất kỳ BasePart nào có "head" trong tên (case-insensitive)
-    for _, obj in ipairs(character:GetDescendants()) do
-        if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "head") then
-            if DEBUG_AIM_PART then
-                print("[AIM] L2 contains 'head' =", obj.Name)
-            end
-            return obj.Position
-        end
-    end
-
-    -- LỚP 3: tìm part CAO NHẤT trong character (đầu luôn là part cao nhất)
-    -- Hoạt động cả khi Head bị stream out hoặc ẩn
-    local highestPart = nil
-    local highestY = -math.huge
-    for _, obj in ipairs(character:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
-            if obj.Position.Y > highestY then
-                highestY = obj.Position.Y
-                highestPart = obj
-            end
-        end
-    end
-
-    if highestPart then
-        -- Offset thêm 0.5 stud lên để chắc chắn vào vùng đầu
-        local aimPos = highestPart.Position + Vector3.new(0, 0.5, 0)
-        if DEBUG_AIM_PART then
-            print("[AIM] L3 highest part =", highestPart.Name, "pos =", aimPos)
-        end
-        return aimPos
-    end
-
-    -- LỚP 4: fallback cuối - Root + offset lên đầu (dựa vào Humanoid)
-    local root = character:FindFirstChild("HumanoidRootPart")
-    local hum = character:FindFirstChildOfClass("Humanoid")
-    if root then
-        -- HipHeight mặc định R15 là 2, R6 là 2. Cộng thêm 1.5 để lên đầu
-        local headOffset = (hum and hum.HipHeight or 2) + 1.5
-        local aimPos = root.Position + Vector3.new(0, headOffset, 0)
-        if DEBUG_AIM_PART then
-            print("[AIM] L4 root+offset =", aimPos)
-        end
-        return aimPos
-    end
-
-    -- Không tìm được gì -> bỏ qua mục tiêu (KHÔNG aim người)
-    if DEBUG_AIM_PART then
-        print("[AIM] FAILED - no part found for", character.Name)
+    for _, obj in ipairs(character:GetChildren()) do
+        if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "head") then return obj end
     end
     return nil
 end
 
+local function getAimPosition(character)
+    if not character or not character.Parent then return nil end
+
+    -- Lớp 1: Head thật (Chuẩn nhất)
+    local headPart = getHeadPart(character)
+    if headPart then
+        return headPart.Position + Vector3.new(0, AIM_OFFSET_Y, 0)
+    end
+
+    -- Lớp 2: GetBoundingBox (Fix khi ở xa)
+    local ok, cf, size = pcall(function()
+        return character:GetBoundingBox()
+    end)
+    if ok and cf and size then
+        -- Lấy đỉnh đầu trừ đi 0.5 để vào giữa đầu
+        return cf.Position + Vector3.new(0, size.Y / 2 - 0.5 + AIM_OFFSET_Y, 0)
+    end
+
+    -- Lớp 3: Tính từ Humanoid (Fix lệch xuống cổ)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if root and hum then
+        local offsetY = 2.5 -- Mặc định R6
+        if hum.RigType == Enum.HumanoidRigType.R15 then
+            offsetY = (hum.HipHeight or 2) + 1.5
+        end
+        return root.Position + Vector3.new(0, offsetY + AIM_OFFSET_Y, 0)
+    end
+
+    return nil
+end
+
 --============================================================
--- AIM TARGET
+-- AIM TARGET (KHÓA MỤC TIÊU)
 --============================================================
 local targetCache = {}
 local lastTargetScan = 0
 
 local function rebuildTargetCache()
     local all = {}
-
     for _, v in ipairs(Players:GetPlayers()) do
         if v ~= localPlayer and v.Character and not BlacklistPlayers[v] then
             local hum = v.Character:FindFirstChildOfClass("Humanoid")
@@ -218,7 +179,6 @@ local function rebuildTargetCache()
             end
         end
     end
-
     for _, model in ipairs(getBots()) do
         if not BlacklistBots[model] then
             local hum = model:FindFirstChildOfClass("Humanoid")
@@ -228,11 +188,10 @@ local function rebuildTargetCache()
             end
         end
     end
-
     targetCache = all
 end
 
-local function getBestAimPosition()
+local function getBestTargetCharacter()
     local cam = workspace.CurrentCamera
     if not cam then return nil end
 
@@ -248,33 +207,22 @@ local function getBestAimPosition()
     local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     local originPos = myRoot and myRoot.Position or cam.CFrame.Position
 
-    local bestPos, bestDist = nil, math.huge
-    local bestDistToCenter = math.huge
+    local bestChar, bestDistToCenter = nil, math.huge
 
     for _, t in ipairs(targetCache) do
         if t.root.Parent and t.character and t.character.Parent then
             local dist3D = (t.root.Position - originPos).Magnitude
-
             if dist3D <= Config.ESPRange then
                 local aimPos = getAimPosition(t.character)
                 if aimPos then
                     local sp, onScreen = cam:WorldToViewportPoint(aimPos)
-
                     if onScreen and sp.Z > 0 then
                         local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-
                         if distToCenter <= Config.FOV then
-                            local isCloser3D = dist3D < bestDist - DIST_EPSILON
-                            local isSame3D   = math.abs(dist3D - bestDist) <= DIST_EPSILON
-
-                            if isCloser3D then
-                                bestDist = dist3D
+                            -- Chọn thằng gần tâm FOV nhất
+                            if distToCenter < bestDistToCenter then
                                 bestDistToCenter = distToCenter
-                                bestPos = aimPos
-                            elseif isSame3D and distToCenter < bestDistToCenter then
-                                bestDist = dist3D
-                                bestDistToCenter = distToCenter
-                                bestPos = aimPos
+                                bestChar = t.character
                             end
                         end
                     end
@@ -282,28 +230,24 @@ local function getBestAimPosition()
             end
         end
     end
-
-    return bestPos
+    return bestChar
 end
 
 --============================================================
--- MODEL DƯỚI CHUỘT (cho phím J)
+-- MODEL DƯỚI CHUỘT
 --============================================================
 local function getModelUnderMouse()
     local mouse = UserInputService:GetMouseLocation()
     local cam = workspace.CurrentCamera
     if not cam then return nil end
     local ray = cam:ViewportPointToRay(mouse.X, mouse.Y)
-
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     local ignore = {}
     if localPlayer.Character then table.insert(ignore, localPlayer.Character) end
     params.FilterDescendantsInstances = ignore
-
     local result = workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
     if not result then return nil end
-
     local model = result.Instance:FindFirstAncestorOfClass("Model")
     if not model then return nil end
     local hum = model:FindFirstChildOfClass("Humanoid")
@@ -312,37 +256,61 @@ local function getModelUnderMouse()
 end
 
 --============================================================
--- AIM LOOP
+-- AIM LOOP (FIX CỨNG TÂM)
 --============================================================
 RunService.RenderStepped:Connect(function()
     if not AimbotEnabled or not aiming then
-        targetPart = nil
+        targetCharacter = nil
         return
     end
 
     local now = tick()
-    if now - lastRetarget >= Config.RetargetTime then
+    
+    -- Nếu chưa có mục tiêu hoặc mục tiêu đã chết -> Tìm mục tiêu mới
+    if not targetCharacter or not targetCharacter.Parent then
+        targetCharacter = getBestTargetCharacter()
         lastRetarget = now
-        targetPart = getBestAimPosition()
+    else
+        local hum = targetCharacter:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            targetCharacter = getBestTargetCharacter()
+            lastRetarget = now
+        end
     end
 
-    if not targetPart then
-        targetPart = getBestAimPosition()
+    -- Nếu đã có mục tiêu, nhưng hết thời gian Retarget -> Chỉ đổi nếu thằng hiện tại đi ra khỏi màn hình
+    if targetCharacter and now - lastRetarget >= Config.RetargetTime then
         lastRetarget = now
+        local curAimPos = getAimPosition(targetCharacter)
+        if curAimPos then
+            local sp, onScreen = workspace.CurrentCamera:WorldToViewportPoint(curAimPos)
+            if not onScreen or sp.Z < 0 then
+                -- Mục tiêu hiện tại khuất màn hình -> Đổi mục tiêu
+                targetCharacter = getBestTargetCharacter()
+            end
+        else
+            targetCharacter = getBestTargetCharacter()
+        end
     end
 
-    if not targetPart then return end
+    if not targetCharacter or not targetCharacter.Parent then return end
+
+    -- Lấy vị trí realtime mỗi frame (Không cache Vector3)
+    local aimPos = getAimPosition(targetCharacter)
+    if not aimPos then return end
 
     local cam = workspace.CurrentCamera
     if not cam then return end
 
-    local screenPos, onScreen = cam:WorldToViewportPoint(targetPart)
+    local screenPos, onScreen = cam:WorldToViewportPoint(aimPos)
     if not onScreen then return end
 
+    -- Tính toán kéo chuột
     local mouse = UserInputService:GetMouseLocation()
     local dx = screenPos.X - mouse.X
     local dy = screenPos.Y - mouse.Y
 
+    -- Áp dụng speed (AimSpeed càng nhỏ thì càng mượt)
     local moveX = dx * Config.AimSpeed
     local moveY = dy * Config.AimSpeed
 
@@ -362,7 +330,6 @@ local function createHighlight(model, isBot)
     local tag = isBot and "BotHighlight" or "PlayerHighlight"
     local existing = model:FindFirstChild(tag)
     if existing then return existing end
-
     local hl = Instance.new("Highlight")
     hl.Name = tag
     hl.FillColor = isBot and BOT_FILL or PLAYER_FILL
@@ -384,18 +351,14 @@ end
 
 local function clearAllHighlights()
     for model, _ in pairs(activeHighlights) do
-        if model and model.Parent then
-            removeHighlightFor(model)
-        end
+        if model and model.Parent then removeHighlightFor(model) end
     end
     activeHighlights = {}
 end
 
 local function updateESP()
     if not espenabled then
-        if next(activeHighlights) ~= nil then
-            clearAllHighlights()
-        end
+        if next(activeHighlights) ~= nil then clearAllHighlights() end
         return
     end
 
@@ -403,7 +366,6 @@ local function updateESP()
     if not cam then return end
     local origin = cam.CFrame.Position
     local range = Config.ESPRange
-
     local visible = {}
 
     for _, v in ipairs(Players:GetPlayers()) do
@@ -495,23 +457,18 @@ local MainColor = Color3.fromRGB(104, 95, 233)
 local function makeDraggable(obj)
     local dragging, dragStart, startPos
     obj.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging, dragStart, startPos = true, input.Position, obj.Position
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local d = input.Position - dragStart
-            obj.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + d.X,
-                startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
         end
     end)
     obj.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
     end)
 end
 
@@ -660,16 +617,11 @@ local function refreshBlacklistUI()
     local count = 0
     for plr, _ in pairs(BlacklistPlayers) do
         count += 1
-        addRow("[P] " .. plr.Name, function()
-            BlacklistPlayers[plr] = nil
-        end)
+        addRow("[P] " .. plr.Name, function() BlacklistPlayers[plr] = nil end)
     end
     for model, _ in pairs(BlacklistBots) do
         count += 1
-        local name = getDisplayName(model)
-        addRow("[B] " .. name, function()
-            BlacklistBots[model] = nil
-        end)
+        addRow("[B] " .. getDisplayName(model), function() BlacklistBots[model] = nil end)
     end
 
     if count == 0 then
@@ -700,31 +652,22 @@ local savedMouseIcon = nil
 
 local function setMenuVisible(visible)
     Main.Visible = visible
-
     if visible then
         savedMouseBehavior = UserInputService.MouseBehavior
         savedMouseIcon = UserInputService.MouseIconEnabled
         UserInputService.MouseBehavior = Enum.MouseBehavior.Default
         UserInputService.MouseIconEnabled = true
     else
-        if savedMouseBehavior then
-            UserInputService.MouseBehavior = savedMouseBehavior
-        end
-        if savedMouseIcon ~= nil then
-            UserInputService.MouseIconEnabled = savedMouseIcon
-        end
+        if savedMouseBehavior then UserInputService.MouseBehavior = savedMouseBehavior end
+        if savedMouseIcon ~= nil then UserInputService.MouseIconEnabled = savedMouseIcon end
     end
 end
 
 local function updateAllUI()
     for _, ref in ipairs(uiRefs.toggles) do
-        if ref and ref.refresh then
-            ref.refresh()
-        end
+        if ref and ref.refresh then ref.refresh() end
     end
-    if uiRefs.refreshAimKey then
-        uiRefs.refreshAimKey()
-    end
+    if uiRefs.refreshAimKey then uiRefs.refreshAimKey() end
 end
 
 local function createToggle(name, configKey)
@@ -757,8 +700,7 @@ local function createToggle(name, configKey)
         local on = false
         if configKey == "espenabled" then on = espenabled
         elseif configKey == "AimbotEnabled" then on = AimbotEnabled
-        elseif configKey == "PriorityPlayer" then on = Config.PriorityPlayer
-        end
+        elseif configKey == "PriorityPlayer" then on = Config.PriorityPlayer end
         ind.BackgroundColor3 = on and MainColor or Color3.fromRGB(60, 60, 70)
         knob.Position = on and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
     end
@@ -840,9 +782,7 @@ local function createSlider(name, minV, maxV, defV, callback)
     end)
 
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
     setVal((defV - minV) / (maxV - minV))
@@ -882,21 +822,10 @@ AimKeyButton.MouseButton1Click:Connect(function()
     refreshAimKey()
 end)
 
-createSlider("AIM SPEED", 0.03, 0.5, 0.09, function(v)
-    Config.AimSpeed = v
-end)
-
-createSlider("FOV", 30, 400, Config.FOV, function(v)
-    Config.FOV = v
-end)
-
-createSlider("ESP RANGE", 50, 1000, Config.ESPRange, function(v)
-    Config.ESPRange = v
-end)
-
-createSlider("RETARGET (s)", 0.05, 1.0, Config.RetargetTime, function(v)
-    Config.RetargetTime = v
-end)
+createSlider("AIM SPEED", 0.03, 0.5, 0.09, function(v) Config.AimSpeed = v end)
+createSlider("FOV", 30, 400, Config.FOV, function(v) Config.FOV = v end)
+createSlider("ESP RANGE", 50, 1000, Config.ESPRange, function(v) Config.ESPRange = v end)
+createSlider("RETARGET (s)", 0.05, 1.0, Config.RetargetTime, function(v) Config.RetargetTime = v end)
 
 local OpenBLBtn = Instance.new("TextButton", Page)
 OpenBLBtn.Size = UDim2.new(1, 0, 0, 34)
@@ -926,60 +855,34 @@ HelpBox.TextXAlignment = Enum.TextXAlignment.Left
 HelpBox.TextYAlignment = Enum.TextYAlignment.Top
 Instance.new("UICorner", HelpBox).CornerRadius = UDim.new(0, 6)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    setMenuVisible(false)
-end)
+CloseBtn.MouseButton1Click:Connect(function() setMenuVisible(false) end)
 
 local HIGH_PRIORITY = 2147483647
-
 local GAME_KEYS = {
     Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D,
     Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.F,
     Enum.KeyCode.Space, Enum.KeyCode.LeftShift, Enum.KeyCode.LeftControl,
     Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three,
     Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six,
-    Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine,
-    Enum.KeyCode.Zero,
-    Enum.KeyCode.Up, Enum.KeyCode.Down, Enum.KeyCode.Left, Enum.KeyCode.Right,
-    Enum.KeyCode.Tab,
+    Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine, Enum.KeyCode.Zero,
+    Enum.KeyCode.Up, Enum.KeyCode.Down, Enum.KeyCode.Left, Enum.KeyCode.Right, Enum.KeyCode.Tab,
 }
 
 local function blockGameHandler(actionName, inputState, inputObject)
-    if Main and Main.Visible then
-        return Enum.ContextActionResult.Sink
-    end
+    if Main and Main.Visible then return Enum.ContextActionResult.Sink end
     return Enum.ContextActionResult.Pass
 end
 
 for _, key in ipairs(GAME_KEYS) do
-    ContextActionService:BindActionAtPriority(
-        "BlockGame_" .. key.Name,
-        blockGameHandler,
-        false,
-        HIGH_PRIORITY,
-        key
-    )
+    ContextActionService:BindActionAtPriority("BlockGame_" .. key.Name, blockGameHandler, false, HIGH_PRIORITY, key)
 end
 
-ContextActionService:BindActionAtPriority(
-    "BlockMouse1",
-    blockGameHandler,
-    false,
-    HIGH_PRIORITY,
-    Enum.UserInputType.MouseButton1
-)
-ContextActionService:BindActionAtPriority(
-    "BlockMouse2",
-    blockGameHandler,
-    false,
-    HIGH_PRIORITY,
-    Enum.UserInputType.MouseButton2
-)
+ContextActionService:BindActionAtPriority("BlockMouse1", blockGameHandler, false, HIGH_PRIORITY, Enum.UserInputType.MouseButton1)
+ContextActionService:BindActionAtPriority("BlockMouse2", blockGameHandler, false, HIGH_PRIORITY, Enum.UserInputType.MouseButton2)
 
 local function handleScriptKey(actionName, inputState, inputObject)
     if inputState == Enum.UserInputState.Begin then
         local key = inputObject.KeyCode
-
         if key == Enum.KeyCode.Q then
             AimbotEnabled = not AimbotEnabled
             updateAllUI()
@@ -1000,26 +903,20 @@ local function handleScriptKey(actionName, inputState, inputObject)
             if model then
                 local plr = Players:GetPlayerFromCharacter(model)
                 if plr then
-                    if BlacklistPlayers[plr] then
-                        BlacklistPlayers[plr] = nil
+                    if BlacklistPlayers[plr] then BlacklistPlayers[plr] = nil
                     else
                         BlacklistPlayers[plr] = true
                         removeHighlightFor(model)
                         activeHighlights[model] = nil
-                        if targetPart and targetPart:FindFirstAncestorOfClass("Model") == model then
-                            targetPart = nil
-                        end
+                        if targetCharacter == model then targetCharacter = nil end
                     end
                 else
-                    if BlacklistBots[model] then
-                        BlacklistBots[model] = nil
+                    if BlacklistBots[model] then BlacklistBots[model] = nil
                     else
                         BlacklistBots[model] = true
                         removeHighlightFor(model)
                         activeHighlights[model] = nil
-                        if targetPart and targetPart:FindFirstAncestorOfClass("Model") == model then
-                            targetPart = nil
-                        end
+                        if targetCharacter == model then targetCharacter = nil end
                     end
                 end
                 if BlacklistPanel.Visible then refreshBlacklistUI() end
@@ -1029,60 +926,37 @@ local function handleScriptKey(actionName, inputState, inputObject)
             if BlacklistPanel.Visible then refreshBlacklistUI() end
         end
     end
-
-    if Main and Main.Visible then
-        return Enum.ContextActionResult.Sink
-    end
+    if Main and Main.Visible then return Enum.ContextActionResult.Sink end
     return Enum.ContextActionResult.Pass
 end
 
 for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.B, Enum.KeyCode.H, Enum.KeyCode.J, Enum.KeyCode.L}) do
-    ContextActionService:BindActionAtPriority(
-        "ScriptKey_" .. key.Name,
-        handleScriptKey,
-        false,
-        HIGH_PRIORITY,
-        key
-    )
+    ContextActionService:BindActionAtPriority("ScriptKey_" .. key.Name, handleScriptKey, false, HIGH_PRIORITY, key)
 end
 
 local function handleMenuKey(actionName, inputState, inputObject)
-    if inputState == Enum.UserInputState.Begin then
-        setMenuVisible(not Main.Visible)
-    end
+    if inputState == Enum.UserInputState.Begin then setMenuVisible(not Main.Visible) end
     return Enum.ContextActionResult.Pass
 end
 
-ContextActionService:BindActionAtPriority(
-    "ScriptKey_T",
-    handleMenuKey,
-    false,
-    HIGH_PRIORITY,
-    Enum.KeyCode.T
-)
+ContextActionService:BindActionAtPriority("ScriptKey_T", handleMenuKey, false, HIGH_PRIORITY, Enum.KeyCode.T)
 
 UserInputService.InputBegan:Connect(function(input, isProcessed)
     if isProcessed then return end
-    if not Main.Visible and input.UserInputType == Config.AimKey then
-        aiming = true
-    end
+    if not Main.Visible and input.UserInputType == Config.AimKey then aiming = true end
 end)
 
 UserInputService.InputEnded:Connect(function(input, isProcessed)
     if isProcessed then return end
     if input.UserInputType == Config.AimKey then
         aiming = false
+        targetCharacter = nil
     end
 end)
 
 print("═══════════════════════════════════════════════")
-print("  AIMLOCK + ESP - LONG BÉO")
-print("  AimSpeed = 0.09 | DIST_EPSILON = " .. DIST_EPSILON)
-print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
-print("  [J] Loại người  [L] Blacklist (có Bỏ All)")
-print("  ESP: Player ĐỎ | Bot VÀNG")
-print("  Aim: Gần mình (3D) + ưu tiên chuột khi xấp xỉ")
-print("  Aim pos: 4 lớp fallback (Head -> contains 'head' ->")
-print("           part cao nhất -> Root+offset)")
-print("  DEBUG_AIM_PART = " .. tostring(DEBUG_AIM_PART))
+print("  AIMLOCK + ESP - LONG BÉO (FIX LỆCH TÂM)")
+print("  AimSpeed = 0.09")
+print("  [FIX] Khóa mục tiêu khi bắn, không nhảy lung tung")
+print("  [FIX] Tự động bù trừ khoảng cách Y (AIM_OFFSET_Y)")
 print("═══════════════════════════════════════════════")
