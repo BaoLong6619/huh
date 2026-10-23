@@ -14,7 +14,7 @@
     - Aim gần mình nhất (3D). Nếu 2 mục tiêu chênh < DIST_EPSILON
       thì ưu tiên thằng gần chuột hơn (tâm FOV).
     - AimSpeed = 0.09 (mượt, khó lộ)
-    - [FIX] Aim đầu thông minh: tìm nhiều tên Head + lấy realtime mỗi lần
+    - [FIX] Aim đầu triệt để: 4 lớp fallback, hoạt động cả ở khoảng cách xa
 ]]
 
 local Players = game:GetService("Players")
@@ -33,15 +33,13 @@ local FILL_TRANSPARENCY = 0.5
 local OUTLINE_TRANSPARENCY = 0
 
 --============================================================
--- NGƯỠNG ƯU TIÊN CHUỘT
--- 2 mục tiêu chênh dist3D < DIST_EPSILON (stud) => coi là gần nhau
--- => chọn thằng gần tâm FOV (chuột) hơn
--- Đặt = 0 để tắt hoàn toàn (giống hệt bản cũ)
+-- CẤU HÌNH
 --============================================================
-local DIST_EPSILON = 20
+local DIST_EPSILON = 20       -- ưu tiên chuột khi chênh 3D < ngưỡng này
+local DEBUG_AIM_PART = false  -- bật true để xem part đang aim (debug)
 
 local Config = {
-    AimSpeed        = 0.09,   -- mượt, khó lộ
+    AimSpeed        = 0.09,
     RetargetTime    = 0.15,
     FOV             = 150,
     ESPRange        = 500,
@@ -58,7 +56,7 @@ local lastRetarget = 0
 local espenabled = false
 
 --============================================================
--- BLACKLIST (PLAYER theo object, BOT theo model)
+-- BLACKLIST
 --============================================================
 local BlacklistPlayers = {}
 local BlacklistBots = {}
@@ -127,43 +125,83 @@ local function getBots()
 end
 
 --============================================================
--- CHỌN PART AIM (ưu tiên đầu, fallback động)
+-- CHỌN VỊ TRÍ AIM (4 LỚP FALLBACK, HOẠT ĐỘNG CẢ Ở XA)
+-- Trả về Vector3 thay vì BasePart để có thể offset lên đầu
 --============================================================
 local HEAD_NAMES = {
-    "HeadHB",
-    "Head",
-    "head",
-    "HeadHitbox",
-    "HitboxHead",
+    "HeadHB", "Head", "head", "HeadHitbox", "HitboxHead",
+    "HeadMesh", "HeadPart", "Head1", "Head_2",
+    "Hat", "HatPart",
 }
 
-local function getAimPart(character)
-    if not character then return nil end
+local function getAimPosition(character)
+    if not character or not character.Parent then return nil end
 
-    -- 1. Thử các tên đầu phổ biến
+    -- LỚP 1: tìm theo tên phổ biến (bao gồm cả trong Accessory/Hat)
     for _, name in ipairs(HEAD_NAMES) do
-        local p = character:FindFirstChild(name)
+        local p = character:FindFirstChild(name, true)  -- true = tìm cả descendants
         if p and p:IsA("BasePart") then
-            return p
+            if DEBUG_AIM_PART then
+                print("[AIM] L1 name =", p.Name, "dist =", (p.Position - camera.CFrame.Position).Magnitude)
+            end
+            return p.Position
         end
     end
 
-    -- 2. Thử tìm bất kỳ BasePart nào có "head" trong tên (case-insensitive)
-    for _, obj in ipairs(character:GetChildren()) do
+    -- LỚP 2: tìm bất kỳ BasePart nào có "head" trong tên (case-insensitive)
+    for _, obj in ipairs(character:GetDescendants()) do
         if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "head") then
-            return obj
+            if DEBUG_AIM_PART then
+                print("[AIM] L2 contains 'head' =", obj.Name)
+            end
+            return obj.Position
         end
     end
 
-    -- 3. Fallback: UpperTorso -> Torso -> HumanoidRootPart
-    return character:FindFirstChild("UpperTorso")
-        or character:FindFirstChild("Torso")
-        or character:FindFirstChild("HumanoidRootPart")
+    -- LỚP 3: tìm part CAO NHẤT trong character (đầu luôn là part cao nhất)
+    -- Hoạt động cả khi Head bị stream out hoặc ẩn
+    local highestPart = nil
+    local highestY = -math.huge
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" then
+            if obj.Position.Y > highestY then
+                highestY = obj.Position.Y
+                highestPart = obj
+            end
+        end
+    end
+
+    if highestPart then
+        -- Offset thêm 0.5 stud lên để chắc chắn vào vùng đầu
+        local aimPos = highestPart.Position + Vector3.new(0, 0.5, 0)
+        if DEBUG_AIM_PART then
+            print("[AIM] L3 highest part =", highestPart.Name, "pos =", aimPos)
+        end
+        return aimPos
+    end
+
+    -- LỚP 4: fallback cuối - Root + offset lên đầu (dựa vào Humanoid)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    local hum = character:FindFirstChildOfClass("Humanoid")
+    if root then
+        -- HipHeight mặc định R15 là 2, R6 là 2. Cộng thêm 1.5 để lên đầu
+        local headOffset = (hum and hum.HipHeight or 2) + 1.5
+        local aimPos = root.Position + Vector3.new(0, headOffset, 0)
+        if DEBUG_AIM_PART then
+            print("[AIM] L4 root+offset =", aimPos)
+        end
+        return aimPos
+    end
+
+    -- Không tìm được gì -> bỏ qua mục tiêu (KHÔNG aim người)
+    if DEBUG_AIM_PART then
+        print("[AIM] FAILED - no part found for", character.Name)
+    end
+    return nil
 end
 
 --============================================================
--- AIM TARGET (GẦN MÌNH NHẤT + ƯU TIÊN CHUỘT KHI XẤP XỈ)
--- Lấy part realtime mỗi lần để tránh cache sai (aim người)
+-- AIM TARGET
 --============================================================
 local targetCache = {}
 local lastTargetScan = 0
@@ -194,7 +232,7 @@ local function rebuildTargetCache()
     targetCache = all
 end
 
-local function getBestTarget()
+local function getBestAimPosition()
     local cam = workspace.CurrentCamera
     if not cam then return nil end
 
@@ -210,7 +248,7 @@ local function getBestTarget()
     local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     local originPos = myRoot and myRoot.Position or cam.CFrame.Position
 
-    local bestPart, bestDist = nil, math.huge
+    local bestPos, bestDist = nil, math.huge
     local bestDistToCenter = math.huge
 
     for _, t in ipairs(targetCache) do
@@ -218,29 +256,26 @@ local function getBestTarget()
             local dist3D = (t.root.Position - originPos).Magnitude
 
             if dist3D <= Config.ESPRange then
-                -- LẤY PART REALTIME MỖI LẦN (fix lỗi aim người)
-                local part = getAimPart(t.character)
-                if part then
-                    local sp, onScreen = cam:WorldToViewportPoint(part.Position)
+                local aimPos = getAimPosition(t.character)
+                if aimPos then
+                    local sp, onScreen = cam:WorldToViewportPoint(aimPos)
 
                     if onScreen and sp.Z > 0 then
                         local distToCenter = (Vector2.new(sp.X, sp.Y) - center).Magnitude
 
                         if distToCenter <= Config.FOV then
-
                             local isCloser3D = dist3D < bestDist - DIST_EPSILON
                             local isSame3D   = math.abs(dist3D - bestDist) <= DIST_EPSILON
 
                             if isCloser3D then
                                 bestDist = dist3D
                                 bestDistToCenter = distToCenter
-                                bestPart = part
+                                bestPos = aimPos
                             elseif isSame3D and distToCenter < bestDistToCenter then
                                 bestDist = dist3D
                                 bestDistToCenter = distToCenter
-                                bestPart = part
+                                bestPos = aimPos
                             end
-
                         end
                     end
                 end
@@ -248,7 +283,7 @@ local function getBestTarget()
         end
     end
 
-    return bestPart
+    return bestPos
 end
 
 --============================================================
@@ -288,20 +323,20 @@ RunService.RenderStepped:Connect(function()
     local now = tick()
     if now - lastRetarget >= Config.RetargetTime then
         lastRetarget = now
-        targetPart = getBestTarget()
+        targetPart = getBestAimPosition()
     end
 
-    if not targetPart or not targetPart.Parent then
-        targetPart = getBestTarget()
+    if not targetPart then
+        targetPart = getBestAimPosition()
         lastRetarget = now
     end
 
-    if not targetPart or not targetPart.Parent then return end
+    if not targetPart then return end
 
     local cam = workspace.CurrentCamera
     if not cam then return end
 
-    local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
+    local screenPos, onScreen = cam:WorldToViewportPoint(targetPart)
     if not onScreen then return end
 
     local mouse = UserInputService:GetMouseLocation()
@@ -1047,5 +1082,7 @@ print("  [Q] Aimlock  [B] ESP  [T] Menu  [H] Đổi phím")
 print("  [J] Loại người  [L] Blacklist (có Bỏ All)")
 print("  ESP: Player ĐỎ | Bot VÀNG")
 print("  Aim: Gần mình (3D) + ưu tiên chuột khi xấp xỉ")
-print("  Part aim: Head (nhiều tên) -> Torso -> Root (realtime)")
+print("  Aim pos: 4 lớp fallback (Head -> contains 'head' ->")
+print("           part cao nhất -> Root+offset)")
+print("  DEBUG_AIM_PART = " .. tostring(DEBUG_AIM_PART))
 print("═══════════════════════════════════════════════")
