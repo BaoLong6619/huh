@@ -1,0 +1,665 @@
+(function () {
+  'use strict';
+
+  const CODE = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NEO CALC PRO // SCIENTIFIC</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  :root { --q: #00f0ff; --bg: #050505; --pnl: #111; --btn: #222; --wrn: #ff3366; --sci: #ffb000; }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Share Tech Mono', monospace; }
+  body { background: var(--bg); color: #fff; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  
+  .calc { width: 800px; background: var(--pnl); border: 2px solid #333; border-radius: 10px; padding: 20px; box-shadow: 0 0 30px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 240, 255, 0.05); position: relative; display: flex; flex-direction: column; gap: 20px; }
+  .calc::before { content: ""; position: absolute; top: -2px; left: -2px; width: 100px; height: 2px; background: var(--q); box-shadow: 0 0 10px var(--q); }
+  .calc::after { content: ""; position: absolute; bottom: -2px; right: -2px; width: 100px; height: 2px; background: var(--q); box-shadow: 0 0 10px var(--q); }
+  
+  .screen { background: #000; border: 1px solid #333; border-radius: 5px; padding: 20px; text-align: right; position: relative; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+  .history { font-size: 14px; color: #666; min-height: 20px; margin-bottom: 10px; }
+  .display { font-size: 48px; color: var(--q); font-weight: bold; text-shadow: 0 0 15px var(--q); overflow-x: auto; white-space: nowrap; }
+  
+  .keypad { display: flex; gap: 20px; }
+  .sci-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex: 1; }
+  .num-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; flex: 1.5; }
+  
+  button { background: var(--btn); border: 1px solid #444; color: #fff; font-size: 20px; padding: 20px 0; border-radius: 8px; cursor: pointer; transition: 0.1s; display: flex; align-items: center; justify-content: center; }
+  button:hover { background: #333; border-color: var(--q); }
+  button:active { transform: scale(0.95); box-shadow: 0 0 10px var(--q); }
+  
+  .op { color: var(--q); font-weight: bold; background: #1a1a1a; }
+  .func { color: var(--sci); font-size: 16px; background: #1a1a1a; }
+  .eq { background: var(--q); color: #000; font-weight: bold; grid-column: span 2; }
+  .eq:hover { background: #00bfff; }
+  .clr { background: var(--wrn); color: #fff; font-weight: bold; }
+  .clr:hover { background: #cc0033; }
+</style>
+</head>
+<body>
+<div class="calc">
+  <div class="screen">
+    <div class="history" id="history"></div>
+    <div class="display" id="display">0</div>
+  </div>
+  <div class="keypad">
+    <div class="sci-keys">
+      <button class="func" onclick="addFunc('sin(')">sin</button>
+      <button class="func" onclick="addFunc('cos(')">cos</button>
+      <button class="func" onclick="addFunc('tan(')">tan</button>
+      <button class="func" onclick="addFunc('log(')">log</button>
+      <button class="func" onclick="addFunc('ln(')">ln</button>
+      <button class="func" onclick="addFunc('√(')">√</button>
+      <button class="func" onclick="addFunc('π')">π</button>
+      <button class="func" onclick="addFunc('e')">e</button>
+      <button class="clr" onclick="clearAll()">AC</button>
+    </div>
+    <div class="num-keys">
+      <button onclick="addNum('7')">7</button>
+      <button onclick="addNum('8')">8</button>
+      <button onclick="addNum('9')">9</button>
+      <button class="op" onclick="addOp('/')">÷</button>
+      
+      <button onclick="addNum('4')">4</button>
+      <button onclick="addNum('5')">5</button>
+      <button onclick="addNum('6')">6</button>
+      <button class="op" onclick="addOp('*')">×</button>
+      
+      <button onclick="addNum('1')">1</button>
+      <button onclick="addNum('2')">2</button>
+      <button onclick="addNum('3')">3</button>
+      <button class="op" onclick="addOp('-')">-</button>
+      
+      <button onclick="addNum('0')">0</button>
+      <button onclick="addNum('.')">.</button>
+      <button class="op" onclick="addOp('^')">x^y</button>
+      <button class="op" onclick="addOp('+')">+</button>
+      
+      <button class="func" onclick="addFunc('(')">(</button>
+      <button class="func" onclick="addFunc(')')">)</button>
+      <button class="clr" onclick="del()">DEL</button>
+      <button class="eq" onclick="calculate()">=</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentInput = '0';
+  let historyStr = '';
+  const displayEl = document.getElementById('display');
+  const historyEl = document.getElementById('history');
+
+  function updateScreen() {
+    displayEl.innerText = currentInput;
+    historyEl.innerText = historyStr;
+  }
+
+  function addNum(num) {
+    if (currentInput === '0' && num !== '.') currentInput = num;
+    else currentInput += num;
+    updateScreen();
+  }
+
+  function addOp(op) {
+    if (op === '^') currentInput += '**';
+    else currentInput += op;
+    updateScreen();
+  }
+
+  function addFunc(func) {
+    if (func === 'π') currentInput += Math.PI.toFixed(6);
+    else if (func === 'e') currentInput += Math.E.toFixed(6);
+    else currentInput += func;
+    updateScreen();
+  }
+
+  function clearAll() {
+    currentInput = '0';
+    historyStr = '';
+    updateScreen();
+  }
+
+  function del() {
+    if (currentInput.length > 1) currentInput = currentInput.slice(0, -1);
+    else currentInput = '0';
+    updateScreen();
+  }
+
+  function calculate() {
+    try {
+      let expr = currentInput;
+      expr = expr.replace(/sin\\(/g, 'Math.sin(');
+      expr = expr.replace(/cos\\(/g, 'Math.cos(');
+      expr = expr.replace(/tan\\(/g, 'Math.tan(');
+      expr = expr.replace(/log\\(/g, 'Math.log10(');
+      expr = expr.replace(/ln\\(/g, 'Math.log(');
+      expr = expr.replace(/√\\(/g, 'Math.sqrt(');
+      
+      let result = new Function('return ' + expr)();
+      
+      if (result % 1 !== 0) result = parseFloat(result.toFixed(6));
+      
+      historyStr = currentInput + ' =';
+      currentInput = result.toString();
+      updateScreen();
+    } catch (e) {
+      currentInput = 'ERROR';
+      historyStr = 'Invalid Syntax';
+      updateScreen();
+      setTimeout(clearAll, 1500);
+    }
+  }
+</script>
+</body>
+</html>`;
+
+  const STOP_LINES = 3;
+  const CHUNK = 4;
+  const TICK_MS = 18;
+
+  let codeIndex = 0;
+  let mode = 'code';
+  let autoTyping = false;
+  let autoTimer = null;
+  let freeEl = null;
+  let freeStartPos = 0;
+  let deleteTimer = null;
+  let lastPreviewText = '';
+
+  // Khung hiển thị 4 ký tự tiếp theo (Thu gọn, góc trên phải)
+  const previewBox = document.createElement('div');
+  previewBox.id = 's7-preview-fixed';
+  const styleFix = document.createElement('style');
+  styleFix.textContent = `
+    #s7-preview-fixed {
+      position: fixed !important;
+      top: 5px !important;
+      right: 5px !important;
+      font-size: 10px !important;
+      color: #ff7777 !important;
+      font-family: monospace !important;
+      font-weight: bold !important;
+      background: rgba(0,0,0,0.8) !important;
+      padding: 2px 5px !important;
+      border-radius: 3px !important;
+      border: 1px solid #ff7777 !important;
+      pointer-events: none !important;
+      z-index: 2147483647 !important;
+      opacity: 1 !important;
+      white-space: nowrap !important;
+    }
+  `;
+  document.head.appendChild(styleFix);
+  document.body.appendChild(previewBox);
+
+  function updatePreview() {
+    if (codeIndex >= CODE.length) {
+      previewBox.textContent = "[EOF]";
+      return;
+    }
+    
+    let next4Chars = CODE.slice(codeIndex, codeIndex + 4);
+    next4Chars = next4Chars.replace(/\n/g, '↵');
+
+    if (next4Chars !== lastPreviewText) {
+      lastPreviewText = next4Chars;
+      previewBox.textContent = next4Chars;
+    }
+  }
+
+  function isEditable(el) {
+    if (!el || !el.tagName) return false;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA') return true;
+    if (tag === 'INPUT') {
+      const type = (el.type || 'text').toLowerCase();
+      return ['text', 'search', 'url', 'tel', 'email', 'password', 'number', ''].indexOf(type) !== -1;
+    }
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
+  function getTarget(e) {
+    if (isEditable(e.target)) return e.target;
+    if (isEditable(document.activeElement)) return document.activeElement;
+    return null;
+  }
+
+  function findCM6View(el) {
+    let node = el;
+    for (let d = 0; d < 14 && node; d++) {
+      if (node.classList && node.classList.contains('cm-editor')) {
+        try {
+          const cv = node.cmView;
+          if (cv) {
+            const v = cv.view || (cv.rootView && cv.rootView.view) || (cv.root && cv.root.view);
+            if (v && typeof v.dispatch === 'function' && v.state) return v;
+          }
+        } catch (_) {}
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function findCM5(el) {
+    let node = el;
+    for (let d = 0; d < 14 && node; d++) {
+      if (node.classList && node.classList.contains('CodeMirror')) {
+        if (node.CodeMirror) return node.CodeMirror;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function findMonaco(el) {
+    if (!window.monaco || !window.monaco.editor) return null;
+    try {
+      const eds = window.monaco.editor.getEditors();
+      for (const ed of eds) {
+        try {
+          const dom = ed.getDomNode();
+          if (dom && (dom === el || dom.contains(el))) return ed;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function scrollToEnd(el) {
+    const v6 = findCM6View(el);
+    if (v6) {
+      try {
+        const sd = v6.scrollDOM;
+        if (sd) sd.scrollTop = sd.scrollHeight;
+        return;
+      } catch (_) {}
+    }
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try { cm5.scrollTo(Infinity, Infinity); return; } catch (_) {}
+    }
+    const mon = findMonaco(el);
+    if (mon) {
+      try {
+        const m = mon.getModel();
+        mon.revealLine(m.getLineCount());
+        return;
+      } catch (_) {}
+    }
+    try { el.scrollTop = el.scrollHeight; } catch (_) {}
+  }
+
+  function getEditorText(el) {
+    const v6 = findCM6View(el);
+    if (v6) {
+      try { return v6.state.doc.toString(); } catch (_) {}
+    }
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try { return cm5.getValue(); } catch (_) {}
+    }
+    const mon = findMonaco(el);
+    if (mon) {
+      try { return mon.getValue(); } catch (_) {}
+    }
+    if (el.isContentEditable) return el.textContent || '';
+    return el.value || '';
+  }
+
+  function setEditorText(el, text) {
+    if (!text) text = '';
+
+    const v6 = findCM6View(el);
+    if (v6) {
+      try {
+        const cur = v6.state.doc.toString();
+        if (cur === text) return true;
+        let i = 0;
+        const max = Math.min(cur.length, text.length);
+        while (i < max && cur[i] === text[i]) i++;
+        v6.dispatch({
+          changes: { from: i, to: cur.length, insert: text.slice(i) },
+          selection: { anchor: text.length }
+        });
+        return true;
+      } catch (_) {}
+    }
+
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try {
+        const cur = cm5.getValue();
+        if (cur === text) return true;
+        let i = 0;
+        const max = Math.min(cur.length, text.length);
+        while (i < max && cur[i] === text[i]) i++;
+        const from = cm5.posFromIndex(i);
+        const to = cm5.posFromIndex(cur.length);
+        cm5.replaceRange(text.slice(i), from, to);
+        const last = cm5.lastLine();
+        cm5.setCursor({ line: last, ch: cm5.getLine(last).length });
+        return true;
+      } catch (_) {}
+    }
+
+    const mon = findMonaco(el);
+    if (mon) {
+      try {
+        const cur = mon.getValue();
+        if (cur === text) return true;
+        let i = 0;
+        const max = Math.min(cur.length, text.length);
+        while (i < max && cur[i] === text[i]) i++;
+        const curLen = cur.length;
+        const fromPos = mon.getModel().getPositionAt(i);
+        const toPos = mon.getModel().getPositionAt(curLen);
+        mon.executeEdits('s7-sync', [{
+          range: {
+            startLineNumber: fromPos.lineNumber,
+            startColumn: fromPos.column,
+            endLineNumber: toPos.lineNumber,
+            endColumn: toPos.column
+          },
+          text: text.slice(i),
+          forceMoveMarkers: true
+        }]);
+        return true;
+      } catch (_) {}
+    }
+
+    if (!el.isContentEditable && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
+      if (el.value === text) return true;
+      el.value = text;
+      try { el.setSelectionRange(text.length, text.length); } catch (_) {}
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }
+    return false;
+  }
+
+  function insertAtEnd(el, text) {
+    if (!text) return true;
+
+    const v6 = findCM6View(el);
+    if (v6) {
+      try {
+        const len = v6.state.doc.length;
+        v6.dispatch({
+          changes: { from: len, insert: text },
+          selection: { anchor: len + text.length }
+        });
+        return true;
+      } catch (_) {}
+    }
+
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try {
+        const last = cm5.lastLine();
+        const col = cm5.getLine(last).length;
+        cm5.replaceRange(text, { line: last, ch: col });
+        cm5.setCursor({ line: last, ch: col + text.length });
+        return true;
+      } catch (_) {}
+    }
+
+    const mon = findMonaco(el);
+    if (mon) {
+      try {
+        const model = mon.getModel();
+        const len = model.getValueLength();
+        const endPos = model.getPositionAt(len);
+        mon.executeEdits('s7', [{
+          range: {
+            startLineNumber: endPos.lineNumber,
+            startColumn: endPos.column,
+            endLineNumber: endPos.lineNumber,
+            endColumn: endPos.column
+          },
+          text: text,
+          forceMoveMarkers: true
+        }]);
+        return true;
+      } catch (_) {}
+    }
+
+    if (el.isContentEditable) {
+      try {
+        const parts = text.split('\n');
+        for (let i = 0; i < parts.length; i++) {
+          if (i > 0) el.appendChild(document.createElement('br'));
+          if (parts[i]) el.appendChild(document.createTextNode(parts[i]));
+        }
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        const s = window.getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        return true;
+      } catch (_) { return false; }
+    }
+
+    try {
+      const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+      const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+      el.value = el.value.slice(0, start) + text + el.value.slice(end);
+      const pos = start + text.length;
+      el.setSelectionRange(pos, pos);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    } catch (_) { return false; }
+  }
+
+  function deleteBack(el) {
+    if (el.isContentEditable) {
+      try { document.execCommand('delete', false); return; } catch (_) {}
+      return;
+    }
+    const start = el.selectionStart != null ? el.selectionStart : 0;
+    const end = el.selectionEnd != null ? el.selectionEnd : 0;
+    if (start !== end) {
+      el.value = el.value.slice(0, start) + el.value.slice(end);
+      try { el.setSelectionRange(start, start); } catch (_) {}
+    } else if (start > 0) {
+      el.value = el.value.slice(0, start - 1) + el.value.slice(start);
+      try { el.setSelectionRange(start - 1, start - 1); } catch (_) {}
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function newlinesRemaining() {
+    let n = 0;
+    for (let i = codeIndex; i < CODE.length; i++) {
+      if (CODE[i] === '\n') n++;
+    }
+    return n;
+  }
+
+  function stopAuto() {
+    autoTyping = false;
+    if (autoTimer) {
+      clearTimeout(autoTimer);
+      autoTimer = null;
+    }
+  }
+
+  function stopDelete() {
+    if (deleteTimer) {
+      clearTimeout(deleteTimer);
+      deleteTimer = null;
+    }
+  }
+
+  function emitChunk(el, n) {
+    let added = '';
+    for (let k = 0; k < n; k++) {
+      if (codeIndex >= CODE.length) break;
+      added += CODE[codeIndex++];
+    }
+    if (!added) return false;
+
+    insertAtEnd(el, added);
+
+    const expected = CODE.slice(0, codeIndex);
+    const actual = getEditorText(el);
+
+    if (actual !== expected) {
+      setEditorText(el, expected);
+    }
+
+    scrollToEnd(el);
+    updatePreview();
+    return true;
+  }
+
+  function startAuto(el) {
+    if (autoTyping) {
+      stopAuto();
+      return;
+    }
+    if (mode !== 'code') return;
+    if (codeIndex >= CODE.length) return;
+
+    try { el.focus(); } catch (_) {}
+
+    autoTyping = true;
+
+    function tick() {
+      if (!autoTyping || mode !== 'code') {
+        autoTyping = false;
+        autoTimer = null;
+        return;
+      }
+      if (codeIndex >= CODE.length) {
+        autoTyping = false;
+        autoTimer = null;
+        return;
+      }
+      if (newlinesRemaining() <= STOP_LINES) {
+        autoTyping = false;
+        autoTimer = null;
+        return;
+      }
+      
+      emitChunk(el, 20); 
+      autoTimer = setTimeout(tick, 1);
+    }
+    tick();
+  }
+
+  function startDeleting() {
+    const el = freeEl;
+    if (!el || el.isContentEditable) {
+      mode = 'code';
+      freeEl = null;
+      return;
+    }
+    mode = 'deleting';
+
+    function step() {
+      if (mode !== 'deleting') return;
+      const pos = el.selectionStart != null ? el.selectionStart : 0;
+      if (pos <= freeStartPos) {
+        mode = 'code';
+        freeEl = null;
+        deleteTimer = null;
+        return;
+      }
+      el.value = el.value.slice(0, freeStartPos) + el.value.slice(freeStartPos + 1);
+      try { el.setSelectionRange(freeStartPos, freeStartPos); } catch (_) {}
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      deleteTimer = setTimeout(step, 14);
+    }
+    step();
+  }
+
+  function isStarKey(e) {
+    if (e.key === '*') return true;
+    if (e.key === '＊') return true;
+    if (e.code === 'Digit8' && e.shiftKey) return true;
+    if (e.code === 'NumpadMultiply') return true;
+    return false;
+  }
+
+  function onKeyDown(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const el = getTarget(e);
+    if (!el) return;
+
+    if (e.key === 'Escape') {
+      stopAuto();
+      stopDelete();
+      mode = 'code';
+      freeEl = null;
+      document.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keydown', onKeyDown, true);
+      return;
+    }
+
+    if (e.key === ';') {
+      e.preventDefault();
+      e.stopPropagation();
+      stopAuto();
+      stopDelete();
+
+      if (mode === 'code' || mode === 'deleting') {
+        mode = 'free';
+        freeEl = el;
+        freeStartPos = el.isContentEditable ? 0 : (el.selectionStart != null ? el.selectionStart : 0);
+      } else if (mode === 'free') {
+        if (el.isContentEditable) {
+          mode = 'code';
+          freeEl = null;
+        } else {
+          startDeleting();
+        }
+      }
+      return;
+    }
+
+    if (mode === 'deleting') {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    if (mode === 'code') {
+      if (isStarKey(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        startAuto(el);
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        stopAuto();
+        deleteBack(el);
+        return;
+      }
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        stopAuto();
+        emitChunk(el, 1);
+        return;
+      }
+      if (e.key.length === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        stopAuto();
+        emitChunk(el, 1);
+      }
+      return;
+    }
+  }
+
+  updatePreview();
+
+  document.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('keydown', onKeyDown, true);
+})();
