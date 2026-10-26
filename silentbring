@@ -1,0 +1,160 @@
+-- CHI TIẾT ĐẦY ĐỦ: Bản Fix Triệt Để Toàn Bộ Lỗi GUI, Lỗi Chữ & Nút Bấm "long béo"
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- Xóa sạch hoàn toàn GUI cũ để không bị đè hay lỗi bộ nhớ
+if CoreGui:FindFirstChild("LongBeo_Perfect_Fix") then 
+    CoreGui:FindFirstChild("LongBeo_Perfect_Fix"):Destroy() 
+end
+
+-- Tạo ScreenGui chính ở lớp cao nhất
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LongBeo_Perfect_Fix"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+-- Hàm kéo thả (Drag) chuẩn xác không bị lệch hay loạn vị trí
+local function makeDraggable(gui)
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    gui.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    gui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Nút lẻ "long béo" (Hiển thị mặc định, chữ to rõ ràng)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "long béo (Nút lẻ)"
+ToggleBtn.Size = UDim2.new(0, 130, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 20, 0, 150)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleBtn.BorderSizePixel = 2
+ToggleBtn.BorderColor3 = Color3.fromRGB(255, 215, 0)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+ToggleBtn.TextSize = 18
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.Text = "long béo 🟢"
+ToggleBtn.ZIndex = 10
+ToggleBtn.Parent = ScreenGui
+makeDraggable(ToggleBtn)
+
+-- Khung chính "long béo" (Bố cục chuẩn, không bị che khuất)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "long béo (Hàng chính)"
+MainFrame.Size = UDim2.new(0, 280, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -120)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+MainFrame.Visible = false
+MainFrame.ZIndex = 5
+MainFrame.Parent = ScreenGui
+makeDraggable(MainFrame)
+
+-- Nút bấm ẩn/hiện đồng bộ chuẩn xác
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    ToggleBtn.Text = MainFrame.Visible and "long béo 🔴" or "long béo 🟢"
+end)
+
+-- 1. Textbox Nhập tên mục tiêu (Ấn vào tự xóa chữ cũ)
+local NameBox = Instance.new("TextBox")
+NameBox.Size = UDim2.new(0.9, 0, 0, 40)
+NameBox.Position = UDim2.new(0.05, 0, 0.1, 0)
+NameBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+NameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+NameBox.PlaceholderText = "Nhập 1 phần tên chính/phụ..."
+NameBox.Text = ""
+NameBox.TextSize = 16
+NameBox.Font = Enum.Font.SourceSans
+NameBox.ZIndex = 6
+NameBox.Parent = MainFrame
+
+NameBox.Focused:Connect(function()
+    NameBox.Text = ""
+end)
+
+-- 2. Textbox Chỉnh khoảng cách Bring
+local DistBox = Instance.new("TextBox")
+DistBox.Size = UDim2.new(0.9, 0, 0, 40)
+DistBox.Position = UDim2.new(0.05, 0, 0.35, 0)
+DistBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+DistBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+DistBox.PlaceholderText = "Khoảng cách mang đến (Mặc định: 3)..."
+DistBox.Text = "3"
+DistBox.TextSize = 16
+DistBox.Font = Enum.Font.SourceSans
+DistBox.ZIndex = 6
+DistBox.Parent = MainFrame
+
+DistBox.Focused:Connect(function()
+    DistBox.Text = ""
+end)
+
+-- 3. Công tắc Silent Bring (Dạng Toggle dùng lâu dài)
+local BringToggle = Instance.new("TextButton")
+BringToggle.Size = UDim2.new(0.9, 0, 0, 45)
+BringToggle.Position = UDim2.new(0.05, 0, 0.65, 0)
+BringToggle.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+BringToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+BringToggle.TextSize = 18
+BringToggle.Font = Enum.Font.SourceSansBold
+BringToggle.Text = "Silent Bring: TẮT ❌"
+BringToggle.ZIndex = 6
+BringToggle.Parent = MainFrame
+
+local isBringing = false
+BringToggle.MouseButton1Click:Connect(function()
+    isBringing = not isBringing
+    if isBringing then
+        BringToggle.BackgroundColor3 = Color3.fromRGB(40, 150, 40)
+        BringToggle.Text = "Silent Bring: BẬT ⚡"
+    else
+        BringToggle.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+        BringToggle.Text = "Silent Bring: TẮT ❌"
+    end
+end)
+
+-- Vòng lặp quét danh sách liên tục bằng Heartbeat và giữ mục tiêu ổn định
+RunService.Heartbeat:Connect(function()
+    if isBringing and NameBox.Text ~= "" then
+        local targetName = NameBox.Text:lower()
+        local dist = tonumber(DistBox.Text) or 3
+        
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and (p.Name:lower():find(targetName) or p.DisplayName:lower():find(targetName)) then
+                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    p.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -dist)
+                end
+            end
+        end
+    end
+end)
