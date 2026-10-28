@@ -10,11 +10,35 @@ local targetAnimationIds = {
     ["13532600125"] = true,
     ["13532604085"] = true,
     
-    -- Đòn mới (Vũ khí - từ ảnh bạn gửi)
+    -- Đòn vũ khí (lần trước)
     ["123005629431309"] = true,
     ["100059874351664"] = true,
     ["104895379416342"] = true,
-    ["134775406437626"] = true
+    ["134775406437626"] = true,
+
+    -- Đòn mới (Ảnh 1)
+    ["13370310513"] = true,
+    ["13390230973"] = true,
+    ["13378751717"] = true,
+    ["13378708199"] = true,
+
+    -- Đòn mới (Ảnh 2)
+    ["14004222985"] = true,
+    ["13997092940"] = true,
+    ["14001963401"] = true,
+    ["14136436157"] = true,
+
+    -- Đòn mới (Ảnh 3)
+    ["15259161390"] = true,
+    ["15240216931"] = true,
+    ["15240176873"] = true,
+    ["15162694192"] = true,
+
+    -- Đòn mới (Ảnh 4)
+    ["13491635433"] = true,
+    ["13296577783"] = true,
+    ["13295919399"] = true,
+    ["13295936866"] = true
 }
 
 -- CẤU HÌNH CHUNG
@@ -52,7 +76,7 @@ local function onAnimationPlayed(animationTrack)
     local animId = tostring(animationTrack.Animation.AnimationId)
     local extractedId = string.match(animId, "%d+")
 
-    -- Kiểm tra xem animation có nằm trong danh sách 7 ID không
+    -- Kiểm tra xem animation có nằm trong danh sách không
     if not targetAnimationIds[extractedId] then return end
 
     local character = player.Character
