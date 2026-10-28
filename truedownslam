@@ -3,14 +3,24 @@ local UserInputService = game:GetService("UserInputService")
 local VirtualUser = game:GetService("VirtualUser")
 local player = Players.LocalPlayer
 
--- TOÀN BỘ ID ANIMATION
+-- TỔNG HỢP TOÀN BỘ ID ANIMATION
 local targetAnimationIds = {
+    -- Đòn cũ (Tay không)
     ["13532562418"] = true, ["13532600125"] = true, ["13532604085"] = true,
+    -- Đòn vũ khí (Lần 1)
     ["123005629431309"] = true, ["100059874351664"] = true, ["104895379416342"] = true, ["134775406437626"] = true,
+    -- Đòn vũ khí (Ảnh 1)
     ["13370310513"] = true, ["13390230973"] = true, ["13378751717"] = true, ["13378708199"] = true,
+    -- Đòn vũ khí (Ảnh 2)
     ["14004222985"] = true, ["13997092940"] = true, ["14001963401"] = true, ["14136436157"] = true,
+    -- Đòn vũ khí (Ảnh 3)
     ["15259161390"] = true, ["15240216931"] = true, ["15240176873"] = true, ["15162694192"] = true,
-    ["13491635433"] = true, ["13296577783"] = true, ["13295919399"] = true, ["13295936866"] = true
+    -- Đòn vũ khí (Ảnh 4)
+    ["13491635433"] = true, ["13296577783"] = true, ["13295919399"] = true, ["13295936866"] = true,
+    -- Đòn vũ khí MỚI (Ảnh 5)
+    ["10469493270"] = true, ["10469630950"] = true, ["10469639222"] = true, ["10469643643"] = true,
+    -- Đòn vũ khí MỚI (Ảnh 6)
+    ["17889458563"] = true, ["17889461810"] = true, ["17889471098"] = true, ["17889290569"] = true
 }
 
 local COMBO_REQUIRED = 3
@@ -20,11 +30,9 @@ local comboCount = 0
 local lastM1Time = 0
 local isEnabled = false
 local busy = false
+local currentMode = "V" -- Mặc định ban đầu là V
 
--- MẶC ĐỊNH BAN ĐẦU LÀ V
-local currentMode = "V" 
-
--- Hàm giả lập bấm chuột trái
+-- Hàm giả lập bấm chuột trái (để tự đấm phát thứ 4)
 local function simulateClick()
     VirtualUser:Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
     task.wait(0.01)
