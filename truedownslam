@@ -13,16 +13,13 @@ local targetAnimationIds = {
 -- CẤU HÌNH CHUNG
 local COMBO_REQUIRED = 3
 local COMBO_TIMEOUT  = 1.5
-
--- CẤU HÌNH CHO TÍNH NĂNG C
-local JUMP_DELAY     = 0.5  -- Đợi 0.5s trước khi nhảy
+local JUMP_DELAY     = 0.5  -- Đợi 0.5s cho tính năng C
 
 -- BIẾN TRẠNG THÁI
 local comboCount = 0
 local lastM1Time = 0
 local busy = false           
 
--- Mặc định cả 2 đều TẮT
 local enabledV = false  
 local enabledC = false  
 
@@ -70,7 +67,7 @@ local function onAnimationPlayed(animationTrack)
         comboCount = 0
         lastM1Time = 0
 
-        -- KÍCH HOẠT TÍNH NĂNG V (Nhảy ngay -> Đấm)
+        -- TÍNH NĂNG V (Nhảy ngay -> Đấm)
         if enabledV then
             if character.Parent and humanoid.Health > 0 then
                 executeFakeJump(character, humanoid)
@@ -79,7 +76,7 @@ local function onAnimationPlayed(animationTrack)
             end
         end
         
-        -- KÍCH HOẠT TÍNH NĂNG C (Đợi 0.5s -> Nhảy -> Đấm)
+        -- TÍNH NĂNG C (Đợi 0.5s -> Nhảy -> Đấm)
         if enabledC then
             task.wait(JUMP_DELAY)
             if character.Parent and humanoid.Health > 0 then
@@ -106,24 +103,35 @@ end
 if player.Character then setupCharacter(player.Character) end
 player.CharacterAdded:Connect(setupCharacter)
 
--- PHÍM TẮT: V và C
+-- PHÍM TẮT: E (Xoay vòng C -> V) và R (Tắt)
 UserInputService.InputBegan:Connect(function(input, isProcessed)
     if isProcessed then return end
     
-    -- BẤM PHÍM V
-    if input.KeyCode == Enum.KeyCode.V then
-        enabledV = not enabledV
-        if enabledV then enabledC = false end -- Tắt C nếu bật V
-        
+    -- BẤM PHÍM E: Xoay vòng C và V
+    if input.KeyCode == Enum.KeyCode.E then
         comboCount = 0
         busy = false
+        
+        -- Logic xoay vòng
+        if not enabledC and not enabledV then
+            -- Nếu cả 2 đều tắt -> Bật C đầu tiên
+            enabledC = true
+            enabledV = false
+        elseif enabledC then
+            -- Nếu C đang bật -> Chuyển sang V
+            enabledC = false
+            enabledV = true
+        elseif enabledV then
+            -- Nếu V đang bật -> Chuyển về C
+            enabledC = true
+            enabledV = false
+        end
     end
     
-    -- BẤM PHÍM C
-    if input.KeyCode == Enum.KeyCode.C then
-        enabledC = not enabledC
-        if enabledC then enabledV = false end -- Tắt V nếu bật C
-        
+    -- BẤM PHÍM R: Tắt cả 2
+    if input.KeyCode == Enum.KeyCode.R then
+        enabledV = false
+        enabledC = false
         comboCount = 0
         busy = false
     end
