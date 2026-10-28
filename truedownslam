@@ -3,25 +3,31 @@ local UserInputService = game:GetService("UserInputService")
 local VirtualUser = game:GetService("VirtualUser")
 local player = Players.LocalPlayer
 
--- ID 3 đòn đấm thường
+-- TỔNG HỢP TẤT CẢ ID (CŨ + MỚI)
 local targetAnimationIds = {
+    -- Đòn cũ (Tay không)
     ["13532562418"] = true,
     ["13532600125"] = true,
-    ["13532604085"] = true
+    ["13532604085"] = true,
+    
+    -- Đòn mới (Vũ khí - từ ảnh bạn gửi)
+    ["123005629431309"] = true,
+    ["100059874351664"] = true,
+    ["104895379416342"] = true,
+    ["134775406437626"] = true
 }
 
 -- CẤU HÌNH CHUNG
 local COMBO_REQUIRED = 3
 local COMBO_TIMEOUT  = 1.5
-local JUMP_DELAY     = 0.5  -- Đợi 0.5s cho tính năng C
+local JUMP_DELAY     = 0.5 
 
 -- BIẾN TRẠNG THÁI
 local comboCount = 0
 local lastM1Time = 0
 local busy = false           
-
-local enabledV = false  
-local enabledC = false  
+local isEnabled = false 
+local currentMode = "C" -- "C" (Đợi) hoặc "V" (Nhảy ngay)
 
 -- Hàm giả lập bấm chuột trái (M1)
 local function simulateClick()
@@ -40,12 +46,13 @@ local function executeFakeJump(character, humanoid)
 end
 
 local function onAnimationPlayed(animationTrack)
-    if not enabledV and not enabledC then return end
+    if not isEnabled then return end
     if busy then return end
 
     local animId = tostring(animationTrack.Animation.AnimationId)
     local extractedId = string.match(animId, "%d+")
 
+    -- Kiểm tra xem animation có nằm trong danh sách 7 ID không
     if not targetAnimationIds[extractedId] then return end
 
     local character = player.Character
@@ -54,6 +61,7 @@ local function onAnimationPlayed(animationTrack)
     if not humanoid then return end
 
     local now = tick()
+    -- Reset combo nếu đứng yên quá lâu
     if now - lastM1Time > COMBO_TIMEOUT then
         comboCount = 0
     end
@@ -67,8 +75,8 @@ local function onAnimationPlayed(animationTrack)
         comboCount = 0
         lastM1Time = 0
 
-        -- TÍNH NĂNG V (Nhảy ngay -> Đấm)
-        if enabledV then
+        -- CHẾ ĐỘ V (Nhảy ngay -> Đấm)
+        if currentMode == "V" then
             if character.Parent and humanoid.Health > 0 then
                 executeFakeJump(character, humanoid)
                 task.wait(0.1) 
@@ -76,8 +84,8 @@ local function onAnimationPlayed(animationTrack)
             end
         end
         
-        -- TÍNH NĂNG C (Đợi 0.5s -> Nhảy -> Đấm)
-        if enabledC then
+        -- CHẾ ĐỘ C (Đợi 0.5s -> Nhảy -> Đấm)
+        if currentMode == "C" then
             task.wait(JUMP_DELAY)
             if character.Parent and humanoid.Health > 0 then
                 executeFakeJump(character, humanoid)
@@ -103,35 +111,24 @@ end
 if player.Character then setupCharacter(player.Character) end
 player.CharacterAdded:Connect(setupCharacter)
 
--- PHÍM TẮT: E (Xoay vòng C -> V) và R (Tắt)
+-- PHÍM TẮT: E (Bật/Tắt) và R (Chuyển C <-> V)
 UserInputService.InputBegan:Connect(function(input, isProcessed)
     if isProcessed then return end
     
-    -- BẤM PHÍM E: Xoay vòng C và V
+    -- BẤM PHÍM E: Bật/Tắt
     if input.KeyCode == Enum.KeyCode.E then
+        isEnabled = not isEnabled
         comboCount = 0
         busy = false
-        
-        -- Logic xoay vòng
-        if not enabledC and not enabledV then
-            -- Nếu cả 2 đều tắt -> Bật C đầu tiên
-            enabledC = true
-            enabledV = false
-        elseif enabledC then
-            -- Nếu C đang bật -> Chuyển sang V
-            enabledC = false
-            enabledV = true
-        elseif enabledV then
-            -- Nếu V đang bật -> Chuyển về C
-            enabledC = true
-            enabledV = false
-        end
     end
     
-    -- BẤM PHÍM R: Tắt cả 2
+    -- BẤM PHÍM R: Đổi chế độ C <-> V
     if input.KeyCode == Enum.KeyCode.R then
-        enabledV = false
-        enabledC = false
+        if currentMode == "C" then
+            currentMode = "V"
+        else
+            currentMode = "C"
+        end
         comboCount = 0
         busy = false
     end
