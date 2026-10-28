@@ -1,0 +1,935 @@
+(function () {
+  'use strict';
+
+  // ==========================================
+  // HACKER TYPER - JS INJECTOR
+  // ==========================================
+  // signal  : 0x2A (numpad multiply)
+  // mode    : autopilot TURBO
+  // halt    : auto-stop when ~7 lines remain
+  // ------------------------------------------
+  // HOW TO USE:
+  //   *     -> engage autopilot (auto-stop near end)
+  //   ;     -> free-type / wipe (toggle)
+  //   ESC   -> exit
+  // ==========================================
+
+  const CODE = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width,
+      initial-scale=1">
+  <meta
+    name="theme-color"
+    content="#ffd9ec">
+  <meta
+    name="description"
+    content="Hello Kitty x Thy">
+  <title>
+    Hello Kitty :: chị Thy xinh gáiii
+  </title>
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin>
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com
+      /css2?family=Quicksand:wght@500;700
+      &family=Pacifico&display=swap">
+  <style>
+    :root {
+      --pink: #ff9ec7;
+      --pink-2: #ffc8e0;
+      --pink-3: #ffe4f1;
+      --pink-4: #fff0f7;
+      --red: #ff4d7d;
+      --red-2: #e63e6d;
+      --yellow: #ffd93b;
+      --white: #ffffff;
+      --ink: #5b2c48;
+      --ink-2: #8a5a75;
+      --shadow:
+        0 20px 60px
+          rgba(255,77,125,0.35);
+      --radius: 32px;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      height: 100%;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      background:
+        radial-gradient(
+          circle at 20% 10%,
+          var(--pink-4) 0%,
+          transparent 55%),
+        radial-gradient(
+          circle at 80% 90%,
+          var(--pink-2) 0%,
+          transparent 55%),
+        linear-gradient(
+          160deg,
+          var(--pink-3) 0%,
+          var(--pink) 100%);
+      font-family:
+        'Quicksand',
+        system-ui,
+        sans-serif;
+      color: var(--ink);
+      overflow: hidden;
+      position: relative;
+      -webkit-font-smoothing:
+        antialiased;
+    }
+    .bubble {
+      position: absolute;
+      border-radius: 50%;
+      background:
+        radial-gradient(
+          circle at 30% 30%,
+          #fff,
+          var(--pink-2));
+      opacity: 0.55;
+      pointer-events: none;
+      animation:
+        float 8s ease-in-out
+        infinite;
+    }
+    .bubble:nth-child(1) {
+      width: 180px;
+      height: 180px;
+      top: 6%;
+      left: 8%;
+      animation-delay: 0s;
+    }
+    .bubble:nth-child(2) {
+      width: 120px;
+      height: 120px;
+      top: 70%;
+      left: 15%;
+      animation-delay: 1.5s;
+    }
+    .bubble:nth-child(3) {
+      width: 90px;
+      height: 90px;
+      top: 15%;
+      right: 12%;
+      animation-delay: 3s;
+    }
+    .bubble:nth-child(4) {
+      width: 140px;
+      height: 140px;
+      bottom: 10%;
+      right: 8%;
+      animation-delay: 2s;
+    }
+    .bubble:nth-child(5) {
+      width: 70px;
+      height: 70px;
+      top: 45%;
+      right: 25%;
+      animation-delay: 4s;
+    }
+    @keyframes float {
+      0%, 100% {
+        transform:
+          translateY(0)
+          scale(1);
+      }
+      50% {
+        transform:
+          translateY(-30px)
+          scale(1.08);
+      }
+    }
+    .card {
+      position: relative;
+      z-index: 2;
+      width: min(92vw, 560px);
+      padding: 48px 40px 56px;
+      background:
+        rgba(255,255,255,0.85);
+      border:
+        3px solid var(--white);
+      border-radius: var(--radius);
+      backdrop-filter:
+        blur(20px)
+        saturate(160%);
+      box-shadow: var(--shadow),
+        inset 0 2px 0
+          rgba(255,255,255,0.9);
+      text-align: center;
+    }
+    .kitty {
+      position: relative;
+      width: 160px;
+      height: 140px;
+      margin: 0 auto 24px;
+      animation:
+        bounce 2.4s ease-in-out
+        infinite;
+    }
+    @keyframes bounce {
+      0%, 100% {
+        transform:
+          translateY(0);
+      }
+      50% {
+        transform:
+          translateY(-8px);
+      }
+    }
+    .kitty .head {
+      position: absolute;
+      inset: 0;
+      background: var(--white);
+      border-radius:
+        50% 50% 48% 48%;
+      border:
+        3px solid var(--ink);
+      box-shadow:
+        inset -6px -6px 0
+          rgba(255,158,199,0.25);
+    }
+    .kitty .ear {
+      position: absolute;
+      width: 0;
+      height: 0;
+      top: -14px;
+      border-left:
+        26px solid transparent;
+      border-right:
+        26px solid transparent;
+      border-bottom:
+        30px solid var(--white);
+      filter:
+        drop-shadow(
+          0 -3px 0 var(--ink));
+    }
+    .kitty .ear.left {
+      left: 6px;
+    }
+    .kitty .ear.right {
+      right: 6px;
+    }
+    .kitty .eye {
+      position: absolute;
+      width: 16px;
+      height: 18px;
+      background: var(--ink);
+      border-radius: 50%;
+      top: 60px;
+    }
+    .kitty .eye.left {
+      left: 40px;
+    }
+    .kitty .eye.right {
+      right: 40px;
+    }
+    .kitty .nose {
+      position: absolute;
+      width: 16px;
+      height: 12px;
+      background: var(--yellow);
+      border:
+        2px solid var(--ink);
+      border-radius: 50%;
+      top: 82px;
+      left: 50%;
+      transform:
+        translateX(-50%);
+    }
+    .kitty .whisker {
+      position: absolute;
+      width: 30px;
+      height: 2px;
+      background: var(--ink);
+      border-radius: 2px;
+    }
+    .kitty .whisker.l1 {
+      top: 70px;
+      left: -22px;
+      transform:
+        rotate(-10deg);
+    }
+    .kitty .whisker.l2 {
+      top: 82px;
+      left: -24px;
+    }
+    .kitty .whisker.l3 {
+      top: 94px;
+      left: -22px;
+      transform:
+        rotate(10deg);
+    }
+    .kitty .whisker.r1 {
+      top: 70px;
+      right: -22px;
+      transform:
+        rotate(10deg);
+    }
+    .kitty .whisker.r2 {
+      top: 82px;
+      right: -24px;
+    }
+    .kitty .whisker.r3 {
+      top: 94px;
+      right: -22px;
+      transform:
+        rotate(-10deg);
+    }
+    .kitty .bow {
+      position: absolute;
+      width: 60px;
+      height: 40px;
+      top: 6px;
+      right: -20px;
+    }
+    .kitty .bow::before,
+    .kitty .bow::after {
+      content: "";
+      position: absolute;
+      width: 30px;
+      height: 40px;
+      background: var(--red);
+      border:
+        3px solid var(--red-2);
+      top: 0;
+    }
+    .kitty .bow::before {
+      left: 0;
+      border-radius:
+        50% 10% 50% 50%;
+      transform:
+        rotate(-12deg);
+    }
+    .kitty .bow::after {
+      right: 0;
+      border-radius:
+        10% 50% 50% 50%;
+      transform:
+        rotate(12deg);
+    }
+    .title {
+      font-family:
+        'Pacifico',
+        cursive;
+      font-size:
+        clamp(40px, 8vw, 64px);
+      line-height: 1.15;
+      color: var(--red);
+      text-shadow:
+        2px 3px 0 var(--pink-3),
+        4px 6px 0
+          rgba(255,77,125,0.2);
+      margin-bottom: 14px;
+    }
+    .subtitle {
+      font-size:
+        clamp(13px, 2.4vw, 16px);
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      margin-bottom: 30px;
+    }
+    .hearts {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+    .hearts span {
+      font-size: 28px;
+      animation:
+        pulse 1.6s ease-in-out
+        infinite;
+    }
+    .hearts span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .hearts span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    .hearts span:nth-child(4) {
+      animation-delay: 0.6s;
+    }
+    .hearts span:nth-child(5) {
+      animation-delay: 0.8s;
+    }
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.85;
+      }
+      50% {
+        transform:
+          scale(1.25);
+        opacity: 1;
+      }
+    }
+    @media (max-width: 480px) {
+      .card {
+        padding: 36px 24px 42px;
+        border-radius: 24px;
+      }
+      .kitty {
+        width: 130px;
+        height: 115px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bubble"></div>
+  <div class="bubble"></div>
+  <div class="bubble"></div>
+  <div class="bubble"></div>
+  <div class="bubble"></div>
+
+  <main class="card">
+    <div class="kitty">
+      <div class="ear left"></div>
+      <div class="ear right"></div>
+      <div class="head"></div>
+      <div class="eye left"></div>
+      <div class="eye right"></div>
+      <div class="nose"></div>
+      <div class="whisker l1"></div>
+      <div class="whisker l2"></div>
+      <div class="whisker l3"></div>
+      <div class="whisker r1"></div>
+      <div class="whisker r2"></div>
+      <div class="whisker r3"></div>
+      <div class="bow"></div>
+    </div>
+
+    <h1 class="title">
+      nội dung chính
+    </h1>
+
+    <p class="subtitle">
+      nội dung phụ
+    </p>
+
+    <div class="hearts">
+      <span>💖</span>
+      <span>🎀</span>
+      <span>💗</span>
+      <span>🐱</span>
+      <span>💞</span>
+    </div>
+  </main>
+</body>
+</html>`;
+
+  // ==========================================
+  // CONFIG
+  // ==========================================
+  const STOP_LINES = 7;   // <= auto dừng khi còn 7 dòng nữa là hết code
+  const CHUNK = 80;       // số ký tự mỗi tick
+  const TICK_MS = 6;      // khoảng nghỉ giữa các tick
+
+  let codeIndex = 0;
+  let mode = 'code';
+  let autoTyping = false;
+  let autoTimer = null;
+  let freeEl = null;
+  let freeStartPos = 0;
+  let deleteTimer = null;
+
+  // ==========================================
+  // EDITOR DETECTION
+  // ==========================================
+  function isEditable(el) {
+    if (!el || !el.tagName) return false;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA') return true;
+    if (tag === 'INPUT') {
+      const type = (el.type || 'text').toLowerCase();
+      return ['text', 'search', 'url', 'tel', 'email', 'password', 'number', ''].indexOf(type) !== -1;
+    }
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
+  function getTarget(e) {
+    if (isEditable(e.target)) return e.target;
+    if (isEditable(document.activeElement)) return document.activeElement;
+    return null;
+  }
+
+  function findCM6View(el) {
+    let node = el;
+    for (let d = 0; d < 14 && node; d++) {
+      if (node.classList && node.classList.contains('cm-editor')) {
+        try {
+          const cv = node.cmView;
+          if (cv) {
+            const v = cv.view
+              || (cv.rootView && cv.rootView.view)
+              || (cv.root && cv.root.view);
+            if (v && typeof v.dispatch === 'function' && v.state) return v;
+          }
+        } catch (_) {}
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function findCM5(el) {
+    let node = el;
+    for (let d = 0; d < 14 && node; d++) {
+      if (node.classList && node.classList.contains('CodeMirror')) {
+        if (node.CodeMirror) return node.CodeMirror;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function findMonaco(el) {
+    if (!window.monaco || !window.monaco.editor) return null;
+    try {
+      const eds = window.monaco.editor.getEditors();
+      for (const ed of eds) {
+        try {
+          const dom = ed.getDomNode();
+          if (dom && (dom === el || dom.contains(el))) return ed;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ==========================================
+  // EDITOR IO
+  // ==========================================
+  function scrollToEnd(el) {
+    const v6 = findCM6View(el);
+    if (v6) {
+      try {
+        const sd = v6.scrollDOM;
+        if (sd) sd.scrollTop = sd.scrollHeight;
+        return;
+      } catch (_) {}
+    }
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try { cm5.scrollTo(Infinity, Infinity); return; } catch (_) {}
+    }
+    const mon = findMonaco(el);
+    if (mon) {
+      try {
+        const m = mon.getModel();
+        mon.revealLine(m.getLineCount());
+        return;
+      } catch (_) {}
+    }
+    try { el.scrollTop = el.scrollHeight; } catch (_) {}
+  }
+
+  function getEditorText(el) {
+    const v6 = findCM6View(el);
+    if (v6) {
+      try { return v6.state.doc.toString(); } catch (_) {}
+    }
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try { return cm5.getValue(); } catch (_) {}
+    }
+    const mon = findMonaco(el);
+    if (mon) {
+      try { return mon.getValue(); } catch (_) {}
+    }
+    if (el.isContentEditable) return el.textContent || '';
+    return el.value || '';
+  }
+
+  function setEditorText(el, text) {
+    if (!text) text = '';
+
+    const v6 = findCM6View(el);
+    if (v6) {
+      try {
+        const cur = v6.state.doc.toString();
+        if (cur === text) return true;
+        let i = 0;
+        const max = Math.min(cur.length, text.length);
+        while (i < max && cur[i] === text[i]) i++;
+        v6.dispatch({
+          changes: {
+            from: i,
+            to: cur.length,
+            insert: text.slice(i)
+          },
+          selection: { anchor: text.length }
+        });
+        return true;
+      } catch (_) {}
+    }
+
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try {
+        const cur = cm5.getValue();
+        if (cur === text) return true;
+        let i = 0;
+        const max = Math.min(cur.length, text.length);
+        while (i < max && cur[i] === text[i]) i++;
+        const from = cm5.posFromIndex(i);
+        const to = cm5.posFromIndex(cur.length);
+        cm5.replaceRange(text.slice(i), from, to);
+        const last = cm5.lastLine();
+        cm5.setCursor({
+          line: last,
+          ch: cm5.getLine(last).length
+        });
+        return true;
+      } catch (_) {}
+    }
+
+    const mon = findMonaco(el);
+    if (mon) {
+      try {
+        const cur = mon.getValue();
+        if (cur === text) return true;
+        let i = 0;
+        const max = Math.min(cur.length, text.length);
+        while (i < max && cur[i] === text[i]) i++;
+        const curLen = cur.length;
+        const fromPos = mon.getModel().getPositionAt(i);
+        const toPos = mon.getModel().getPositionAt(curLen);
+        mon.executeEdits('s7-sync', [{
+          range: {
+            startLineNumber: fromPos.lineNumber,
+            startColumn: fromPos.column,
+            endLineNumber: toPos.lineNumber,
+            endColumn: toPos.column
+          },
+          text: text.slice(i),
+          forceMoveMarkers: true
+        }]);
+        return true;
+      } catch (_) {}
+    }
+
+    if (!el.isContentEditable && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
+      if (el.value === text) return true;
+      el.value = text;
+      try { el.setSelectionRange(text.length, text.length); } catch (_) {}
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }
+
+    return false;
+  }
+
+  function insertAtEnd(el, text) {
+    if (!text) return true;
+
+    const v6 = findCM6View(el);
+    if (v6) {
+      try {
+        const len = v6.state.doc.length;
+        v6.dispatch({
+          changes: { from: len, insert: text },
+          selection: { anchor: len + text.length }
+        });
+        return true;
+      } catch (_) {}
+    }
+
+    const cm5 = findCM5(el);
+    if (cm5) {
+      try {
+        const last = cm5.lastLine();
+        const col = cm5.getLine(last).length;
+        cm5.replaceRange(text, { line: last, ch: col });
+        cm5.setCursor({
+          line: last,
+          ch: col + text.length
+        });
+        return true;
+      } catch (_) {}
+    }
+
+    const mon = findMonaco(el);
+    if (mon) {
+      try {
+        const model = mon.getModel();
+        const len = model.getValueLength();
+        const endPos = model.getPositionAt(len);
+        mon.executeEdits('s7', [{
+          range: {
+            startLineNumber: endPos.lineNumber,
+            startColumn: endPos.column,
+            endLineNumber: endPos.lineNumber,
+            endColumn: endPos.column
+          },
+          text: text,
+          forceMoveMarkers: true
+        }]);
+        return true;
+      } catch (_) {}
+    }
+
+    if (el.isContentEditable) {
+      try {
+        const parts = text.split('\n');
+        for (let i = 0; i < parts.length; i++) {
+          if (i > 0) el.appendChild(document.createElement('br'));
+          if (parts[i]) el.appendChild(document.createTextNode(parts[i]));
+        }
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        const s = window.getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    try {
+      const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+      const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+      el.value = el.value.slice(0, start) + text + el.value.slice(end);
+      const pos = start + text.length;
+      el.setSelectionRange(pos, pos);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function deleteBack(el) {
+    if (el.isContentEditable) {
+      try { document.execCommand('delete', false); return; } catch (_) {}
+      return;
+    }
+    const start = el.selectionStart != null ? el.selectionStart : 0;
+    const end = el.selectionEnd != null ? el.selectionEnd : 0;
+    if (start !== end) {
+      el.value = el.value.slice(0, start) + el.value.slice(end);
+      try { el.setSelectionRange(start, start); } catch (_) {}
+    } else if (start > 0) {
+      el.value = el.value.slice(0, start - 1) + el.value.slice(start);
+      try { el.setSelectionRange(start - 1, start - 1); } catch (_) {}
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // ==========================================
+  // AUTO-TYPER
+  // ==========================================
+  function newlinesRemaining() {
+    let n = 0;
+    for (let i = codeIndex; i < CODE.length; i++) {
+      if (CODE[i] === '\n') n++;
+    }
+    return n;
+  }
+
+  function stopAuto() {
+    autoTyping = false;
+    if (autoTimer) {
+      clearTimeout(autoTimer);
+      autoTimer = null;
+    }
+  }
+
+  function stopDelete() {
+    if (deleteTimer) {
+      clearTimeout(deleteTimer);
+      deleteTimer = null;
+    }
+  }
+
+  function emitChunk(el, n) {
+    let added = '';
+    for (let k = 0; k < n; k++) {
+      if (codeIndex >= CODE.length) break;
+      added += CODE[codeIndex++];
+    }
+    if (!added) return false;
+
+    insertAtEnd(el, added);
+
+    const expected = CODE.slice(0, codeIndex);
+    const actual = getEditorText(el);
+
+    if (actual !== expected) {
+      setEditorText(el, expected);
+    }
+
+    scrollToEnd(el);
+    return true;
+  }
+
+  function startAuto(el) {
+    if (autoTyping) {
+      stopAuto();
+      return;
+    }
+    if (mode !== 'code') return;
+    if (codeIndex >= CODE.length) return;
+    if (newlinesRemaining() <= STOP_LINES) return;
+
+    try { el.focus(); } catch (_) {}
+
+    autoTyping = true;
+
+    function tick() {
+      if (!autoTyping || mode !== 'code') {
+        autoTyping = false;
+        autoTimer = null;
+        return;
+      }
+      if (codeIndex >= CODE.length) {
+        autoTyping = false;
+        autoTimer = null;
+        return;
+      }
+      // Còn <= 7 dòng nữa là hết code -> DỪNG TỰ ĐỘNG
+      if (newlinesRemaining() <= STOP_LINES) {
+        autoTyping = false;
+        autoTimer = null;
+        return;
+      }
+      emitChunk(el, CHUNK);
+      autoTimer = setTimeout(tick, TICK_MS);
+    }
+    tick();
+  }
+
+  function startDeleting() {
+    const el = freeEl;
+    if (!el || el.isContentEditable) {
+      mode = 'code';
+      freeEl = null;
+      return;
+    }
+    mode = 'deleting';
+
+    function step() {
+      if (mode !== 'deleting') return;
+      const pos = el.selectionStart != null ? el.selectionStart : 0;
+      if (pos <= freeStartPos) {
+        mode = 'code';
+        freeEl = null;
+        deleteTimer = null;
+        return;
+      }
+      el.value = el.value.slice(0, freeStartPos)
+        + el.value.slice(freeStartPos + 1);
+      try { el.setSelectionRange(freeStartPos, freeStartPos); } catch (_) {}
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      deleteTimer = setTimeout(step, 14);
+    }
+    step();
+  }
+
+  // ==========================================
+  // KEY HANDLER
+  // ==========================================
+  function isStarKey(e) {
+    if (e.key === '*') return true;
+    if (e.key === '＊') return true;
+    if (e.code === 'Digit8' && e.shiftKey) return true;
+    if (e.code === 'NumpadMultiply') return true;
+    return false;
+  }
+
+  function onKeyDown(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const el = getTarget(e);
+    if (!el) return;
+
+    if (e.key === 'Escape') {
+      stopAuto();
+      stopDelete();
+      mode = 'code';
+      freeEl = null;
+      document.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keydown', onKeyDown, true);
+      return;
+    }
+
+    if (e.key === ';') {
+      e.preventDefault();
+      e.stopPropagation();
+      stopAuto();
+      stopDelete();
+
+      if (mode === 'code' || mode === 'deleting') {
+        mode = 'free';
+        freeEl = el;
+        freeStartPos = el.isContentEditable
+          ? 0
+          : (el.selectionStart != null ? el.selectionStart : 0);
+      } else if (mode === 'free') {
+        if (el.isContentEditable) {
+          mode = 'code';
+          freeEl = null;
+        } else {
+          startDeleting();
+        }
+      }
+      return;
+    }
+
+    if (mode === 'deleting') {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    if (mode === 'code') {
+      if (isStarKey(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        startAuto(el);
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        stopAuto();
+        deleteBack(el);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (e.key.length === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        stopAuto();
+        emitChunk(el, 1);
+      }
+      return;
+    }
+  }
+
+  document.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('keydown', onKeyDown, true);
+})();
