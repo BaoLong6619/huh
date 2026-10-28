@@ -1,0 +1,169 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- 1. TỰ ĐỘNG XOÁ BẢNG CŨ NẾU CÓ
+local oldGui = PlayerGui:FindFirstChild("AnimLoggerUI")
+if oldGui then oldGui:Destroy() end
+
+-- 2. TẠO BẢNG MỚI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AnimLoggerUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 320, 0, 400)
+Frame.Position = UDim2.new(0, 20, 0.5, -200)
+Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Frame.BackgroundTransparency = 0.1
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = Frame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = " QUÉT ANIMATION (5 giây...)"
+Title.TextColor3 = Color3.fromRGB(0, 255, 150)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Frame
+
+-- Nút X tắt bảng
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Parent = Title
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -10, 1, -35)
+Scroll.Position = UDim2.new(0, 5, 0, 35)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 3
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Scroll.Parent = Frame
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 4)
+Layout.Parent = Scroll
+
+local loggedIds = {}
+local isScanning = true
+
+-- 3. HÀM XỬ LÝ KHI CÓ ANIMATION PHÁT
+local function onAnimationPlayed(animationTrack)
+    if not isScanning then return end
+    
+    local anim = animationTrack.Animation
+    if not anim then return end
+    
+    local fullId = tostring(anim.AnimationId)
+    local extractedId = string.match(fullId, "%d+") or "?"
+    
+    -- Nếu đã ghi nhận ID này rồi thì bỏ qua
+    if loggedIds[extractedId] then return end
+    loggedIds[extractedId] = true
+    
+    local animName = anim.Name or "NoName"
+    
+    -- Hiện lên bảng
+    local TextBtn = Instance.new("TextButton")
+    TextBtn.Size = UDim2.new(1, 0, 0, 40)
+    TextBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    TextBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextBtn.Font = Enum.Font.Code
+    TextBtn.TextSize = 12
+    TextBtn.Text = string.format("Tên: %s\nID: %s", animName, extractedId)
+    TextBtn.TextXAlignment = Enum.TextXAlignment.Left
+    TextBtn.Parent = Scroll
+    
+    -- Click để copy ID
+    TextBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(extractedId)
+            Title.Text = " Đã Copy ID: " .. extractedId
+            Title.TextColor3 = Color3.fromRGB(0, 255, 0)
+            task.delay(2, function()
+                if Title and Title.Parent then
+                    Title.Text = " HOÀN TẤT! (Bấm ID để Copy)"
+                    Title.TextColor3 = Color3.fromRGB(0, 255, 150)
+                end
+            end)
+        end
+    end)
+    
+    print("🔥 ANIM: " .. animName .. " | ID: " .. extractedId)
+end
+
+-- 4. THIẾT LẬP QUÉT CẢ NHÂN VẬT VÀ VŨ KHÍ
+local function setupAllAnimators()
+    local char = player.Character
+    if not char then return end
+    
+    -- Quét Animator của nhân vật
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            animator.AnimationPlayed:Connect(onAnimationPlayed)
+        end
+    end
+    
+    -- Quét Animator của Tool (vũ khí) đang cầm
+    for _, obj in ipairs(char:GetChildren()) do
+        if obj:IsA("Tool") then
+            local toolAnimator = obj:FindFirstChildOfClass("Animator")
+            if not toolAnimator then
+                local handle = obj:FindFirstChild("Handle")
+                if handle then
+                    toolAnimator = handle:FindFirstChildOfClass("Animator")
+                end
+            end
+            
+            if toolAnimator then
+                toolAnimator.AnimationPlayed:Connect(onAnimationPlayed)
+            end
+        end
+    end
+end
+
+-- Chạy ngay nếu đã có nhân vật
+if player.Character then
+    setupAllAnimators()
+end
+
+-- Tự động setup lại nếu chết/respawn
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    setupAllAnimators()
+end)
+
+-- 5. ĐẾM NGƯỢC 5 GIÂY
+task.spawn(function()
+    for i = 5, 1, -1 do
+        if not Title or not Title.Parent then break end
+        Title.Text = string.format(" ĐANG QUÉT (%d giây...)", i)
+        task.wait(1)
+    end
+    isScanning = false
+    if Title and Title.Parent then
+        Title.Text = " HOÀN TẤT! (Bấm ID để Copy)"
+        Title.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
