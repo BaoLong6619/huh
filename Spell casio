@@ -1,0 +1,881 @@
+{
+    " ": "20",
+    "/": "2F",
+    "A": "41",
+    "B": "42",
+    "C": "43",
+    "D": "44",
+    "E": "45",
+    "F": "46",
+    "G": "47",
+    "H": "48",
+    "I": "49",
+    "J": "4A",
+    "K": "4B",
+    "L": "4C",
+    "M": "4D",
+    "N": "4E",
+    "O": "4F",
+    "P": "50",
+    "Q": "51",
+    "R": "52",
+    "S": "53",
+    "T": "54",
+    "U": "55",
+    "V": "56",
+    "W": "57",
+    "X": "58",
+    "Y": "59",
+    "Z": "5A",
+    "a": "61",
+    "b": "62",
+    "c": "63",
+    "d": "64",
+    "e": "65",
+    "f": "66",
+    "g": "67",
+    "h": "68",
+    "i": "69",
+    "j": "6A",
+    "k": "6B",
+    "l": "6C",
+    "m": "6D",
+    "n": "6E",
+    "o": "6F",
+    "p": "70",
+    "q": "71",
+    "r": "72",
+    "s": "73",
+    "t": "74",
+    "u": "75",
+    "v": "76",
+    "w": "77",
+    "x": "78",
+    "y": "79",
+    "z": "7A",
+    "0": "30",
+    "1": "31",
+    "2": "32",
+    "3": "33",
+    "4": "34",
+    "5": "35",
+    "6": "36",
+    "7": "37",
+    "8": "38",
+    "9": "39",
+    "\u1ea0": "F4 10",
+    "\u1eae": "F4 11",
+    "\u1eb0": "F4 12",
+    "\u1eb6": "F4 13",
+    "\u1ea4": "F4 14",
+    "\u1ea6": "F4 15",
+    "\u1ea8": "F4 16",
+    "\u1eac": "F4 17",
+    "\u1ebc": "F4 18",
+    "\u1eb8": "F4 19",
+    "\u1ebe": "F4 1A",
+    "\u1ec0": "F4 1B",
+    "\u1ec2": "F4 1C",
+    "\u1ec4": "F4 1D",
+    "\u1ec6": "F4 1E",
+    "\u1ed0": "F4 1F",
+    "\u1ed2": "F4 20",
+    "\u1ed4": "F4 21",
+    "\u1ed6": "F4 22",
+    "\u1ed8": "F4 23",
+    "\u1ee2": "F4 24",
+    "\u1eda": "F4 25",
+    "\u1edc": "F4 26",
+    "\u1ede": "F4 27",
+    "\u1eca": "F4 28",
+    "\u1ece": "F4 29",
+    "\u1ecc": "F4 2A",
+    "\u1ec8": "F4 2B",
+    "\u1ee6": "F4 2C",
+    "\u0168": "F4 2D",
+    "\u1ee4": "F4 2E",
+    "\u1ef2": "F4 2F",
+    "\u00d5": "F4 30",
+    "\u1eaf": "F4 31",
+    "\u1eb1": "F4 32",
+    "\u1eb7": "F4 33",
+    "\u1ea5": "F4 34",
+    "\u1ea7": "F4 35",
+    "\u1ea9": "F4 36",
+    "\u1ead": "F4 37",
+    "\u1ebd": "F4 38",
+    "\u1eb9": "F4 39",
+    "\u1ebf": "F4 3A",
+    "\u1ec1": "F4 3B",
+    "\u1ec3": "F4 3C",
+    "\u1ec5": "F4 3D",
+    "\u1ec7": "F4 3E",
+    "\u1ed1": "F4 3F",
+    "\u1ed3": "F4 40",
+    "\u1ed5": "F4 41",
+    "\u1ed7": "F4 42",
+    "\u1ee0": "F4 43",
+    "\u01a0": "F4 44",
+    "\u1ed9": "F4 45",
+    "\u1edd": "F4 46",
+    "\u1edf": "F4 47",
+    "\u1ecb": "F4 48",
+    "\u1ef0": "F4 49",
+    "\u1ee8": "F4 4A",
+    "\u1eea": "F4 4B",
+    "\u1eec": "F4 4C",
+    "\u01a1": "F4 4D",
+    "\u1edb": "F4 4E",
+    "\u01af": "F4 4F",
+    "\u00c0": "F4 50",
+    "\u00c1": "F4 51",
+    "\u00c2": "F4 52",
+    "\u00c3": "F4 53",
+    "\u1ea2": "F4 54",
+    "\u0102": "F4 55",
+    "\u1eb3": "F4 56",
+    "\u1eb5": "F4 57",
+    "\u00c8": "F4 58",
+    "\u00c9": "F4 59",
+    "\u00ca": "F4 5A",
+    "\u1eba": "F4 5B",
+    "\u00cc": "F4 5C",
+    "\u00cd": "F4 5D",
+    "\u0128": "F4 5E",
+    "\u1ef3": "F4 5F",
+    "\u0110": "F4 60",
+    "\u1ee9": "F4 61",
+    "\u00d2": "F4 62",
+    "\u00d3": "F4 63",
+    "\u00d4": "F4 64",
+    "\u1ea1": "F4 65",
+    "\u1ef7": "F4 66",
+    "\u1eeb": "F4 67",
+    "\u1eed": "F4 68",
+    "\u00d9": "F4 69",
+    "\u00da": "F4 6A",
+    "\u1ef9": "F4 6B",
+    "\u1ef5": "F4 6C",
+    "\u00dd": "F4 6D",
+    "\u1ee1": "F4 6E",
+    "\u01b0": "F4 6F",
+    "\u00e0": "F4 70",
+    "\u00e1": "F4 71",
+    "\u00e2": "F4 72",
+    "\u00e3": "F4 73",
+    "\u1ea3": "F4 74",
+    "\u0103": "F4 75",
+    "\u1eef": "F4 76",
+    "\u1eab": "F4 77",
+    "\u00e8": "F4 78",
+    "\u00e9": "F4 79",
+    "\u00ea": "F4 7A",
+    "\u1ebb": "F4 7B",
+    "\u00ec": "F4 7C",
+    "\u00ed": "F4 7D",
+    "\u0129": "F4 7E",
+    "\u1ec9": "F4 7F",
+    "\u0111": "F4 80",
+    "\u1ef1": "F4 81",
+    "\u00f2": "F4 82",
+    "\u00f3": "F4 83",
+    "\u00f4": "F4 84",
+    "\u00f5": "F4 85",
+    "\u1ecf": "F4 86",
+    "\u1ecd": "F4 87",
+    "\u1ee5": "F4 88",
+    "\u00f9": "F4 89",
+    "\u00fa": "F4 8A",
+    "\u0169": "F4 8B",
+    "\u1ee7": "F4 8C",
+    "\u00fd": "F4 8D",
+    "\u1ee3": "F4 8E",
+    "\u1eee": "F4 8F",
+    "\u1eb2": "F4 90",
+    "\u1eb4": "F4 91",
+    "\u1eaa": "F4 92",
+    "\u1ef6": "F4 93",
+    "\u1ef8": "F4 94",
+    "\u1ef4": "F4 95",
+    "!": "21",
+    "\"": "22",
+    "#": "23",
+    "\u00d7": "24",
+    "%": "25",
+    "\u00f7": "26",
+    "'": "27",
+    "(": "28",
+    ")": "29",
+    "\u00b7": "2A",
+    "+": "2B",
+    ",": "2C",
+    "\u2014": "2D",
+    ".": "2E",
+    ":": "3A",
+    ";": "3B",
+    "<": "3C",
+    "=": "3D",
+    ">": "3E",
+    "?": "3F",
+    "@": "40",
+    "[": "5B",
+    "\u25ab": "5C",
+    "]": "5D",
+    "^": "5E",
+    "_": "5F",
+    "-": "60",
+    "{": "7B",
+    "}": "7D",
+    "~": "7E",
+    "\u22a2": "7F",
+    "\ud835\udc8a": "80",
+    "\ud835\udcee": "81",
+    "\u00b9\u2070": "83",
+    "\u221e": "84",
+    "\u00b0": "85",
+    "\u2220": "88",
+    "\ud835\udc65\u0304": "89",
+    "\ud835\udc66\u0304": "8A",
+    "\u2192": "8D",
+    "\u220f": "8E",
+    "\u21d2": "8F",
+    "\u2264": "94",
+    "\u2260": "95",
+    "\u2265": "96",
+    "\u25ae": "CC",
+    "\u25af": "CD"
+}
+
+
+
+
+
+{
+    "/": "2F",
+    "L": "4C",
+    "M": "4D",
+    "N": "4E",
+    "O": "4F",
+    "T": "54",
+    "U": "55",
+    "V": "56",
+    "W": "57",
+    "X": "58",
+    "Y": "59",
+    "Z": "5A",
+    "a": "61",
+    "b": "62",
+    "c": "63",
+    "d": "64",
+    "e": "65",
+    "f": "66",
+    "g": "67",
+    "j": "6A",
+    "k": "6B",
+    "\u1ea0": "F4 10",
+    "\u1eae": "F4 11",
+    "\u1eb0": "F4 12",
+    "\u1eb6": "F4 13",
+    "\u1ea4": "F4 14",
+    "\u1ea6": "F4 15",
+    "\u1ea8": "F4 16",
+    "\u1eac": "F4 17",
+    "\u1ebc": "F4 18",
+    "\u1eb8": "F4 19",
+    "\u1ebe": "F4 1A",
+    "\u1ec0": "F4 1B",
+    "\u1ec2": "F4 1C",
+    "\u1ec4": "F4 1D",
+    "\u1ec6": "F4 1E",
+    "\u1ed0": "F4 1F",
+    "\u1ed2": "F4 20",
+    "\u1ed4": "F4 21",
+    "\u1ed6": "F4 22",
+    "\u1ed8": "F4 23",
+    "\u1ee2": "F4 24",
+    "\u1eda": "F4 25",
+    "\u1edc": "F4 26",
+    "\u1ede": "F4 27",
+    "\u1eca": "F4 28",
+    "\u1ece": "F4 29",
+    "\u1ecc": "F4 2A",
+    "\u1ec8": "F4 2B",
+    "\u1ee6": "F4 2C",
+    "\u0168": "F4 2D",
+    "\u1ee4": "F4 2E",
+    "\u1ef2": "F4 2F",
+    "\u00d5": "F4 30",
+    "\u1eaf": "F4 31",
+    "\u1eb1": "F4 32",
+    "\u1eb7": "F4 33",
+    "\u1ea5": "F4 34",
+    "\u1ea7": "F4 35",
+    "\u1ea9": "F4 36",
+    "\u1ead": "F4 37",
+    "\u1ebd": "F4 38",
+    "\u1eb9": "F4 39",
+    "\u1ebf": "F4 3A",
+    "\u1ec1": "F4 3B",
+    "\u1ec3": "F4 3C",
+    "\u1ec5": "F4 3D",
+    "\u1ec7": "F4 3E",
+    "\u1ed1": "F4 3F",
+    "\u1ed3": "F4 40",
+    "\u1ed5": "F4 41",
+    "\u1ed7": "F4 42",
+    "\u1ee0": "F4 43",
+    "\u01a0": "F4 44",
+    "\u1ed9": "F4 45",
+    "\u1edd": "F4 46",
+    "\u1edf": "F4 47",
+    "\u1ecb": "F4 48",
+    "\u1ef0": "F4 49",
+    "\u1ee8": "F4 4A",
+    "\u1eea": "F4 4B",
+    "\u1eec": "F4 4C",
+    "\u01a1": "F4 4D",
+    "\u1edb": "F4 4E",
+    "\u01af": "F4 4F",
+    "\u00c0": "F4 50",
+    "\u00c1": "F4 51",
+    "\u00c2": "F4 52",
+    "\u00c3": "F4 53",
+    "\u1ea2": "F4 54",
+    "\u0102": "F4 55",
+    "\u1eb3": "F4 56",
+    "\u1eb5": "F4 57",
+    "\u00c8": "F4 58",
+    "\u00c9": "F4 59",
+    "\u00ca": "F4 5A",
+    "\u1eba": "F4 5B",
+    "\u00cc": "F4 5C",
+    "\u00cd": "F4 5D",
+    "\u0128": "F4 5E",
+    "\u1ef3": "F4 5F",
+    "\u0110": "F4 60",
+    "\u1ee9": "F4 61",
+    "\u00d2": "F4 62",
+    "\u00d3": "F4 63",
+    "\u00d4": "F4 64",
+    "\u1ea1": "F4 65",
+    "\u1ef7": "F4 66",
+    "\u1eeb": "F4 67",
+    "\u1eed": "F4 68",
+    "\u00d9": "F4 69",
+    "\u00da": "F4 6A",
+    "\u1ef9": "F4 6B",
+    "\u1ef5": "F4 6C",
+    "\u00dd": "F4 6D",
+    "\u1ee1": "F4 6E",
+    "\u01b0": "F4 6F",
+    "\u00e0": "F4 70",
+    "\u00e1": "F4 71",
+    "\u00e2": "F4 72",
+    "\u00e3": "F4 73",
+    "\u1ea3": "F4 74",
+    "\u0103": "F4 75",
+    "\u1eef": "F4 76",
+    "\u1eab": "F4 77",
+    "\u00e8": "F4 78",
+    "\u00e9": "F4 79",
+    "\u00ea": "F4 7A",
+    "\u1ebb": "F4 7B",
+    "\u00ec": "F4 7C",
+    "\u00ed": "F4 7D",
+    "\u0129": "F4 7E",
+    "\u1ec9": "F4 7F",
+    "\u0111": "F4 80",
+    "\u1ef1": "F4 81",
+    "\u00f2": "F4 82",
+    "\u00f3": "F4 83",
+    "\u00f4": "F4 84",
+    "\u00f5": "F4 85",
+    "\u1ecf": "F4 86",
+    "\u1ecd": "F4 87",
+    "\u1ee5": "F4 88",
+    "\u00f9": "F4 89",
+    "\u00fa": "F4 8A",
+    "\u0169": "F4 8B",
+    "\u1ee7": "F4 8C",
+    "\u00fd": "F4 8D",
+    "\u1ee3": "F4 8E",
+    "\u1eee": "F4 8F",
+    "\u1eb2": "F4 90",
+    "\u1eb4": "F4 91",
+    "\u1eaa": "F4 92",
+    "\u1ef6": "F4 93",
+    "\u1ef8": "F4 94",
+    "\u1ef4": "F4 95",
+    "\u00d7": "24",
+    "%": "25",
+    "\u00f7": "26",
+    "'": "27",
+    "(": "28",
+    ")": "29",
+    "\u00b7": "2A",
+    "+": "2B",
+    ",": "2C",
+    "\u2014": "2D",
+    ".": "2E",
+    ":": "3A",
+    ";": "3B",
+    "<": "3C",
+    "=": "3D",
+    ">": "3E",
+    "?": "3F",
+    "@": "40",
+    "[": "5B",
+    "\u25ab": "5C",
+    "]": "5D",
+    "^": "5E",
+    "_": "5F",
+    "-": "60",
+    "{": "7B",
+    "}": "7D",
+    "~": "7E",
+    "\u22a2": "7F",
+    "\ud835\udc8a": "80",
+    "\ud835\udcee": "81",
+    "\u00b9\u2070": "83",
+    "\u221e": "84",
+    "\u00b0": "85",
+    "\u2220": "88",
+    "\ud835\udc65\u0304": "89",
+    "\ud835\udc66\u0304": "8A",
+    "\u2192": "8D",
+    "\u220f": "8E",
+    "\u21d2": "8F",
+    "\u2264": "94",
+    "\u2260": "95",
+    "\u2265": "96",
+    "\u25ae": "CC",
+    "\u25af": "CD"
+}
+
+
+
+
+
+
+
+
+
+{
+    " ": "[shift] [8] [3] [4]",
+    "A": "[Ans]",
+    "B": "[alpha] [(-)]",
+    "C": "[alpha] [\u25a1 '  \"]",
+    "D": "[alpha] [x\u207b\u00b9]",
+    "E": "[alpha] [sin]",
+    "F": "[alpha] [cos]",
+    "G": "[alpha] [tan]",
+    "H": "[x]",
+    "I": "[alpha] [)]",
+    "J": "[alpha] [Ans]",
+    "K": "[alpha] [S<=>D]",
+    "P": "[shift] [x]",
+    "Q": "[\u222b]",
+    "R": "[shift] [\u222b]",
+    "S": "[alpha] [x]",
+    "h": "[shift] [(]",
+    "i": "[shift] [0]",
+    "l": "[OPTN] [1] [1]",
+    "m": "[OPTN] [1] [2]",
+    "n": "[OPTN] [1] [3]",
+    "o": "[OPTN] [1] [4]",
+    "p": "[OPTN] [1] [5]",
+    "q": "[OPTN] [1] [6]",
+    "r": "[shift] [ln]",
+    "s": "[shift] [log\u25aa\u25a1]",
+    "t": "[\u221a]",
+    "u": "[ln]",
+    "v": "[shift] [\u221a]",
+    "w": "[sin]",
+    "x": "[cos]",
+    "y": "[tan]",
+    "z": "[shift] [sin]",
+    "0": "[0]",
+    "1": "[1]",
+    "2": "[2]",
+    "3": "[3]",
+    "4": "[4]",
+    "5": "[5]",
+    "6": "[6]",
+    "7": "[7]",
+    "8": "[8]",
+    "9": "[9]",
+    "!": "[alpha] [\u00d710\u02e3]",
+    "\"": "[shift] [\u00d710\u02e3]",
+    "#": "[alpha] [\u222b]"
+}
+
+
+
+
+
+
+
+
+
+A : [shift] [7] [3] [7]
+B : [shift] [7] [3] [8]
+C : [shift] [7] [3] [9]
+D : [shift] [7] [3] [(-)]
+E : [shift] [7] [3] [□ ' "]
+F : [shift] [7] [3] [x⁻¹]
+
+
+
+
+
+
+
+import time
+import sys
+import re
+import string
+import json
+
+def typewriter(text, delay=0.00):
+    for ch in text:
+        sys.stdout.write(ch)
+        sys.stdout.flush()
+        time.sleep(delay)
+    print()
+
+def show_menu():
+    typewriter("\n===== HACK CASIO =====", 0.01)
+    time.sleep(0.5)
+    typewriter("Tool Spell on CASIO fx-580VN X", 0.01)
+    typewriter("- © 2026 HACK CASIO -", 0.01)
+    typewriter("1. Note", 0.02)
+    typewriter("2. Contact", 0.02)
+    typewriter("3. Spell", 0.02)
+
+def show_notes():
+    typewriter("\n===== Note =====", 0.02)
+    notes = [
+    "1. Tool hoàn toàn miễn phí, nghiêm cấm buôn bán hoặc sử dụng để trục lợi.",
+    "2. Không được chỉnh sửa hoặc xóa tên tác giả.",
+    "3. Nghiêm cấm sao chép hoặc phát tán trái phép dưới mọi hình thức.",
+    "4. Tool chỉ hỗ trợ spell tối đa 17 byte và ký tự.",
+    "5. Chỉ hỗ trợ CASIO fx-580VN X, các dòng máy khác có thể không hoạt động.",
+    "6. Không nên phụ thuộc hoàn toàn vào tool.",
+    "7. Tool có thể phát sinh lỗi trong quá trình sử dụng.",
+    "8. Nếu gặp lỗi, vui lòng liên hệ để được hỗ trợ."
+    ]
+    for note in notes:
+        typewriter(f"  • {note}", 0.00)
+
+def show_contacts():
+    typewriter("\n===== Contact =====", 0.02)
+    contacts = [
+        "Discord: Phong2k11®(phong2k11_4).",
+        "Discord: C++ My Life(@kiet130218_80627) or Kiet1302181(@kiet1302181)."
+    ]
+    for info in contacts:
+        typewriter(f"  • {info}", 0.02)
+
+# Cái def fill_template() này dùng để lấp hex vào biến A B C
+def fill(hex_list):
+    A = ["1.0000", "__", "__", "_!", "!_", "__", "×10", "!!"]
+    B = ["1.", "__", "__", "__", "_!", "!_", "__", "×10", "!!"]
+    C = ["1.", "__", "__", "__", "_!", "!_", "__", "×10", "!!"]
+    pos = 0 # vị trí của hex_list
+    pos1 = 0 # vị trí slot của các biến A B C
+    filled = []
+    id = 0
+    hex_list_edited = []
+    pos3 = 0
+    filled.append(" x:\n")
+    # Xóa khoảng cách giữa 2 bytes
+    for phantu in hex_list:
+        if len(phantu) == 5:
+            xoa = phantu.replace(" ", "")
+            hex_list[pos3] = xoa
+        pos3 += 1
+    # Tách 2 bytes
+    for phantu in hex_list:
+        pos2 = 0
+        while pos2 <= len(phantu):
+            byte_edited = phantu[pos2:pos2+2]
+            if byte_edited == '':
+                break
+            else:
+                hex_list_edited.append(byte_edited)
+            pos2 += 2
+    hex_list = hex_list_edited
+    if len(hex_list) > 20:
+        return filled, 0, False
+
+    '''
+    ID = 0 thì chỉ biến A
+    ID = 1 thì chỉ biến B
+    ID = 2 thì chỉ biến C
+    '''
+    for i in range(100):
+        if id == 0:
+            slot = A[pos1]
+        elif id == 1:
+            slot = B[pos1]
+        elif id == 2:
+            slot = C[pos1]
+            
+        if slot in ["1.0000", "1."]:
+            if id == 0:
+                filled.append("A = ")
+            if id == 1:
+                filled.append("B = ")
+            if id == 2:
+                filled.append("C = ")
+            filled.append(slot)
+            pos1 += 1
+        if slot == "×10":
+            filled.append(slot)
+            pos1 += 1
+        else:
+            byte = hex_list[pos]
+            if slot == "__":
+                filled.append(byte)
+                pos += 1
+                pos1 += 1
+            elif slot == "_!":
+                if byte[1].isalpha():
+                    filled.append("20")
+                else:
+                    filled.append(byte)
+                    pos += 1
+                pos1 += 1
+            elif slot == "!_":
+                if byte[0].isalpha():
+                    filled.append("20")
+                else:
+                    filled.append(byte)
+                    pos += 1
+                pos1 += 1
+            elif slot == "!!":
+                if byte.isdigit():
+                    filled.append(byte)
+                    filled.append("\n")
+                    pos += 1
+                elif byte[0].isalpha() or byte[1].isalpha():
+                    if hex_list[pos-1] == "F4":
+                        filled.remove(hex_list[pos-1])
+                        filled.insert(pos-1, "20")
+                        pos -= 1
+                        filled.append("20")
+                    else:
+                        filled.append("20")
+                    filled.append("\n")
+                pos1 = 0
+                id += 1
+        if len(hex_list) == pos:
+            break
+    if len(filled) - 6 > 20:
+        return filled, id, False
+    else:
+        return filled, id, True
+
+def spell_input():
+    cau = input("Nhập câu spell:")
+    while len(cau) > 17:
+        typewriter("Câu không hợp lệ.", 0.04)
+        cau = spell_input()
+    ds_chu = list(cau)
+    spaces = 17 - len(cau)
+    # Căn lề giữa cho câu:
+    if spaces % 2 == 0:
+        spaces_lr = spaces // 2
+        ds_chu = [' ' for i in range(spaces_lr)] + ds_chu + [' ' for i in range(spaces_lr)]
+    elif spaces % 2 == 1:
+        space_l = (spaces - 1) // 2
+        space_r = space_l + 1
+        ds_chu = [" " for i in range(space_l)] + ds_chu + [" " for i in range(space_r)]
+    # Lọc kí tự ghi bằng Hex và kí tự ghi bằng phím
+    count = 0
+    chars_hex = ['a','b','c','d','e','f','g','j','k','L','M','N','O','T','U','V','W','X','Y','Z']
+    hex_list = [] # Danh sách lưu các hex của các chữ không ghi bằng phím, lấy bằng hex
+    chars_by_hex = [] # Các kí tự lấy bằng hex trong câu nhập vào
+    chars_by_key = [] # Các kí tự lấy bằng key trong câu nhập vào
+    hex_chars = [] # Kí tự hex, là chữ cái A B C D E F in đậm
+    found_keys = {} # Phím
+    found_hex_chars = {}
+    all_ascii_chars = list(string.ascii_letters)
+    for ki_tu in ds_chu:  # Lọc
+        if ki_tu in chars_hex:  # Nếu kí tự nằm trong kí tự lấy bằng Hex
+            chars_by_hex.append(ki_tu)
+        elif ki_tu not in chars_hex and ki_tu in all_ascii_chars:  # Nếu kí tự không nằm trong chars_hex nhưng là ascii
+            chars_by_key.append(ki_tu)
+        elif ki_tu not in chars_hex and ki_tu not in all_ascii_chars and ki_tu != " " and not ki_tu.isdigit():
+            if ki_tu != "!":
+                chars_by_hex.append(ki_tu)
+        elif ki_tu == "!" and not ki_tu.isdigit():
+            chars_by_key.append(ki_tu)
+        elif ki_tu.isdigit():
+            chars_by_key.append(ki_tu)
+    # Lấy kí tự trong file
+    with open("chars_hex.json", "r") as file:
+        all_hex_chars = json.load(file) # Lấy dữ liệu
+        for char in chars_by_hex:
+            try:
+                hex_code = all_hex_chars[char]
+                typewriter(f"Hex của kí tự {char} là {hex_code}", 0.03)
+                hex_list.append(hex_code)
+            except Exception as e:
+                typewriter(f"a. Lỗi! Không thể tìm thấy kí tự {char}. Lỗi bắt được: {e}", 0.03)
+    with open("chars_key.json", "r") as f:
+        all_key_chars = json.load(f)
+        for char in chars_by_key:
+            try:
+                key = all_key_chars[char]
+                found_keys[char] = key
+            except Exception as e:
+                typewriter(f"b. Lỗi! Không thể tìm thấy phím của kí tự {char}. Lỗi bắt được: {e}", 0.03)
+    for byte in hex_list:
+        for ki_tu_hex in byte:
+            if ki_tu_hex in ["A", "B", "C", "D", "E", "F"]:
+                hex_chars.append(ki_tu_hex)
+    hex_chars.append("C")
+    hex_list.append("3C")
+    hex_list.append("23")
+    with open("takechars.txt", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        found = False
+        for line in lines:
+            line = line.strip()
+            parts = line.split(" : ")
+            for char in hex_chars:
+                if len(parts) == 2:
+                    if parts[0] == char:
+                        key = parts[1]
+                        found_hex_chars[char] = key
+                        found = True
+                        break
+    list_lo = []  # Danh sách
+    filled, id, status = fill(hex_list)
+    if not status:
+        typewriter("Lỗi quá nhiều byte.", 0.01)
+    for i in filled:
+        list_lo.append(i)
+    # Lấp hex_list vào A, B, C
+    typewriter("Bước 1: Reset máy: \n [shift] [9] [3] [=] [=]", 0.01)
+    typewriter("Bước 2: Vào LineI/O: \n [shift] [menu] [1] [3]", 0.01)
+    typewriter("Bước 3: Vào Basic Overflow: \n [x] [alpha] [CALC] [shift] [x] [x] [shift] [)] [9] [shift] [)] [9] [9] [9] [CALC] [=] [AC] [<] [del] [del] [CALC] [=] [<] [shift] [.]", 0.00)
+    typewriter("Bước 4: Lấy kí tự Hex cần thiết: ", 0.01)
+    for ki_tu_hex in hex_chars:
+        print(found_hex_chars.get(ki_tu_hex, ""), end=" ")
+        count += 1
+    typewriter(f"([<] [9] [DEL])×{count} [del] [del] [del] ([<])×{count} [alpha] [∫]")
+    typewriter("Bước 5: Gán hex: ", 0.01)
+    count = 0  # Reset biến count để đếm lần 
+    for i in list_lo[:]:
+        if i == "A = " or i == "B = " or i == "C = ":
+            list_lo.remove(i)
+    for byte in list_lo:
+        if byte == " n\\ 1.0000":
+            print(" n\\ [alpha] [(-)] [alpha] [CALC]", end=" ")
+        elif byte == "1.":
+            if count == 0:
+                print(" \n [alpha] [∫] [alpha] [□ ' \"]", end=" ")
+                count += 1
+            elif count == 1:
+                print(" \n [alpha] [∫] [alpha] [x⁻¹]", end=" ")
+        elif byte == ' n\\ x:':
+            print(" n\\ [x] [alpha] [∫]")
+        elif byte == " ":
+            pass
+        else:
+            for ki_tu in byte:
+                if ki_tu.isdigit():
+                    print(f" [{ki_tu}]", end=" ")
+                elif ki_tu in ["A", "B", "C", "D", "E", "F"]:
+                    print("[>]", end=" ")
+                elif ki_tu == ".":
+                    print("[.]", end=" ")
+                elif byte == "×10":
+                    print("[×10]", end=" ")
+                    break
+    typewriter(f"[CALC] ([=])×{id + 2}", 0.02)
+    typewriter("Bước 6: Lấy 'an': \n [x] [alpha] [CALC] [shift] [x] [x] [shift] [)] [9] [shift] [)] [9] [CALC] [=] [<] [shift] [.] [shift] [.] [<] [<] [DEL] [v] [shift] [8] [v] [2] [6] [<] [<] [>] [9] [DEL] [<] [)] [+] [100 số bất kì] [CALC] [=]", 0.01)
+    typewriter("Bước 7: Lấy '@': \n [x] [alpha] [CALC] [shift] [x] [x] [shift] [)] [9] [shift] [)] [9] [CALC] [=] [<] [shift] [.]", 0.01)
+    if id == 0:
+        typewriter('[shift] [7] [4] [8]', 0.02)
+        typewriter('([<] [9] [DEL])×1\n[DEL]×10', 0.02)
+        typewriter('[<] [9 số bất kì] [>] [alpha] [∫] [>] [alpha] [CALC] [alpha] [(-)]\n[CALC] ([=])×2 [^]', 0.01)
+    elif id == 1:
+        typewriter('[shift] [7] [4] [8] [shift] [7] [4] [9]', 0.02)
+        typewriter('([<] [9] [DEL])×2\n[DEL]×10', 0.02)
+        typewriter('[<] [9 số bất kì] [>] [alpha] [∫] [>] [alpha] [CALC] [alpha] [(-)] [alpha] [∫] [>] [alpha] [CALC] [alpha] [□ \' "]\n[CALC] ([=])×3 [^]', 0.01)
+    elif id == 2:
+        typewriter('[shift] [7] [4] [8] [shift] [7] [4] [9] [shift] [7] [1] [4]', 0.02)
+        typewriter('([<] [9] [DEL])×3\n[DEL]×10', 0.01)
+        typewriter('[<] [9 số bất kì] [>] [alpha] [∫] [>] [alpha] [CALC] [alpha] [(-)] [alpha] [∫] [>] [alpha] [CALC] [alpha] [□ \' "] [alpha] [∫] [>] [alpha] [CALC] [alpha] [x^-1]\n[CALC] ([=])×4 [^]', 0.01)
+    typewriter('Bước 8: Xóa bytes thừa:', 0.02)
+    list_lo.reverse()
+    if " x:\n" in list_lo:
+        list_lo.remove(" x:\n")
+    if "\n" in list_lo:
+        list_lo.remove("\n")
+    count = 0
+    for i in list_lo:
+        if i == '20':
+            if count == 0:
+                print("[DEL]", end=" ")
+            else:
+                print(f"[<]x{count} [DEL]", end=" ")
+            count = 0
+        elif i == '1.':
+            if count == 0:
+                print("[DEL]x2", end=" ")
+            else:
+                print(f"[<]x{count} [DEL]x2", end=" ")
+            count = 0
+        elif i == '1.0000':
+            if count != 0:
+                print(f"[<]x{count}", end=" ")
+            count = 0
+        elif i == '×10' or i == "F4":
+            pass
+        else:
+            count += 1
+    typewriter("\nBước 9: Nhập chữ: ")
+    b = 0  # Biến đếm khi có kí tự 2 bytes
+    for char in ds_chu:
+        if char in found_keys:
+            typewriter(found_keys[char],0.04)
+        elif char not in found_keys:
+            # Tại sao dấu cách không có trong found_keys ? Do idk :)))
+            if char == " ":
+                typewriter("[shift] [8] [3] [4]", 0.02)
+                b+=1
+            elif char not in all_ascii_chars:
+                typewriter("[>]", 0.02)
+                time.sleep(0.8)
+                b+=1 #Do không nằm trong kí tự Tiếng Anh và các kí tự ascii
+            elif char in all_ascii_chars:
+                if char in chars_by_hex:
+                    typewriter("[>]",0.01)
+                    time.sleep(0.01)
+    typewriter(f"[{17-b} số bất kì] [shift] [(] [2] [x] [calc] [=]")
+    typewriter("--- End ---", 0.01)
+    typewriter("- Developed by Phong2k11® & AxesMC -", 0.01)
+
+def main():
+    show_menu()  # Hiện menu
+    while True:
+        choice = input(">>> ").strip()
+        if choice == "1":
+            show_notes()
+        elif choice == "2":
+            show_contacts()
+        elif choice == "3":
+            spell_input()
+        else:
+            typewriter("Lựa chọn không hợp lệ.", 0.01)
+
+if __name__ == "__main__":
+    main()
+
+
+
+
