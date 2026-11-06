@@ -1,0 +1,39 @@
+Tổng hợp yêu cầu chung (áp dụng cho mọi câu spell)
+
+Yêu cầu cốt lõi của bạn
+
+1. Về code tool
+
+· Code spell CASIO phải chạy được, sửa các bug
+· Dùng đúng 3 file dữ liệu: chars_hex.json, chars_key.json, takechars.txt
+· Viết code hoàn chỉnh khi cần
+
+2. Về hướng dẫn nhập
+
+· Hướng dẫn cách nhập câu spell trên máy CASIO fx-580VN X
+· Áp dụng cho bất kỳ câu nào, không chỉ "Tớ thích cậu"
+· Chỉ ghi bước chi tiết, không giải thích dài dòng
+· Không dùng khung code — ghi thẳng ra
+· Cái nào lặp thì ghi rõ số lần (vd "nhấn 8 lần [<] [9] [DEL]")
+
+3. Về cách trình bày
+
+· Ngắn gọn, thực dụng
+· Tập trung vào thao tác phím bấm
+· Không lan man lý thuyết
+
+---
+
+Nếu bạn spell câu KHÁC thì sao?
+
+Quy trình chung sẽ là:
+
+Bước 1 — Xác định câu, đếm ký tự, căn giữa 17
+
+Bước 2 — Tra hex/key từng ký tự (dựa vào 3 file)
+
+Bước 3 — Tách byte, tính số byte, xác định dùng A / A+B / A+B+C
+
+Bước 4 — Xác định các ký tự hex cần lấy (A-F + số đi kèm)
+
+Bước 5 — Nhập theo 10 bước như đã hướng dẫn, chỉ thay đổi phần hex và phần nhập chữ ở Bước 9
