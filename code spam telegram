@@ -1,0 +1,199 @@
+(function () {
+  document.getElementById('tg-pro-panel')?.remove();
+
+  // Mẹo chống ngủ đông tab
+  const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+  silentAudio.loop = true;
+
+  // Nhúng CSS cho giao diện
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    
+    #tg-pro-panel {
+      position: fixed; top: 20px; right: 20px; z-index: 999999;
+      width: 300px; padding: 20px;
+      background: rgba(20, 20, 25, 0.85);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      color: #fff; font-family: 'Inter', system-ui, sans-serif;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+    #tg-pro-panel .header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    }
+    #tg-pro-panel .title { font-weight: 600; font-size: 15px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+    #tg-pro-panel .close-btn {
+      cursor: pointer; color: #888; transition: 0.2s; font-size: 18px;
+    }
+    #tg-pro-panel .close-btn:hover { color: #ff4757; transform: scale(1.1); }
+    
+    #tg-pro-panel label { font-size: 12px; color: #aaa; margin-bottom: 6px; display: block; font-weight: 600; }
+    
+    #tg-pro-panel textarea {
+      width: 100%; box-sizing: border-box; padding: 10px;
+      background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px; color: #fff; font-family: 'Inter', sans-serif;
+      resize: none; outline: none; transition: 0.2s; font-size: 13px;
+    }
+    #tg-pro-panel textarea:focus { border-color: #00d2ff; box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.2); }
+    
+    #tg-pro-panel .slider-container {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 4px;
+    }
+    #tg-pro-panel .slider-value {
+      background: rgba(255, 255, 255, 0.1); padding: 2px 8px; border-radius: 6px; font-size: 12px; color: #00d2ff; font-weight: 600;
+    }
+    #tg-pro-panel input[type=range] {
+      -webkit-appearance: none; width: 100%; background: transparent; margin: 8px 0;
+    }
+    #tg-pro-panel input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 6px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 3px;
+    }
+    #tg-pro-panel input[type=range]::-webkit-slider-thumb {
+      height: 16px; width: 16px; border-radius: 50%; background: #00d2ff;
+      cursor: pointer; -webkit-appearance: none; margin-top: -5px;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.5); transition: 0.2s;
+    }
+    #tg-pro-panel input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    
+    #tg-pro-panel .btn-group { display: flex; gap: 10px; margin-top: 16px; }
+    #tg-pro-panel button {
+      flex: 1; padding: 10px; border: none; border-radius: 10px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: 0.2s; color: #fff; display: flex; justify-content: center; align-items: center; gap: 6px;
+    }
+    #tg-pro-panel .btn-start {
+      background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+      box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+    }
+    #tg-pro-panel .btn-start:hover { box-shadow: 0 6px 20px rgba(0, 210, 255, 0.5); transform: translateY(-1px); }
+    #tg-pro-panel .btn-stop {
+      background: rgba(255, 71, 87, 0.1); border: 1px solid rgba(255, 71, 87, 0.3); color: #ff4757;
+    }
+    #tg-pro-panel .btn-stop:hover { background: rgba(255, 71, 87, 0.2); transform: translateY(-1px); }
+    
+    #tg-pro-panel .status {
+      margin-top: 14px; font-size: 12px; text-align: center; color: #888; padding: 8px;
+      background: rgba(0,0,0,0.2); border-radius: 8px; transition: 0.3s;
+    }
+    #tg-pro-panel .status.active { color: #00d2ff; background: rgba(0, 210, 255, 0.1); }
+  `;
+  document.head.appendChild(style);
+
+  // Tạo Panel
+  const panel = document.createElement('div');
+  panel.id = 'tg-pro-panel';
+  panel.innerHTML = `
+    <div class="header">
+      <div class="title"><span style="font-size:18px;">🚀</span> Pro Spammer</div>
+      <div class="close-btn" id="pro-close">✕</div>
+    </div>
+    
+    <label>Nội dung tin nhắn</label>
+    <textarea id="pro-msg" rows="2">Hello</textarea>
+    
+    <div class="slider-container">
+      <label style="margin:0;">Tốc độ (Delay)</label>
+      <span class="slider-value" id="pro-delay-val">0 ms</span>
+    </div>
+    <input type="range" id="pro-delay" min="0" max="2000" step="50" value="0">
+    
+    <div class="btn-group">
+      <button class="btn-start" id="pro-start">▶ Bắt đầu</button>
+      <button class="btn-stop" id="pro-stop">■ Dừng</button>
+    </div>
+    
+    <div class="status" id="pro-status">Sẵn sàng hoạt động</div>
+  `;
+  document.body.appendChild(panel);
+
+  let running = false, sent = 0;
+  const $ = (id) => panel.querySelector(id);
+  const statusEl = $('#pro-status');
+  const log = (t, isActive = false) => { 
+    statusEl.innerHTML = t; 
+    statusEl.className = isActive ? 'status active' : 'status';
+  };
+
+  // Cập nhật số trên thanh trượt
+  const delayInput = $('#pro-delay');
+  const delayVal = $('#pro-delay-val');
+  delayInput.addEventListener('input', (e) => {
+    delayVal.textContent = e.target.value + ' ms';
+  });
+
+  function getInput() {
+    return document.querySelector('.input-message-input[contenteditable="true"]');
+  }
+
+  function fastSend() {
+    const box = getInput();
+    if (!box) return false;
+
+    const msg = $('#pro-msg').value;
+    box.innerText = msg;
+    
+    box.dispatchEvent(new InputEvent('input', {
+      bubbles: true, cancelable: true, inputType: 'insertText', data: msg
+    }));
+
+    box.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', code: 'Enter', keyCode: 13, which: 13, charCode: 13,
+      bubbles: true, cancelable: true, composed: true
+    }));
+
+    return true;
+  }
+
+  const channel = new MessageChannel();
+  let currentDelay = 0;
+  
+  channel.port1.onmessage = () => {
+    if (!running) return;
+    
+    fastSend();
+    sent++;
+    
+    if (sent % 10 === 0) log(`📨 Đã gửi: <b>${sent}</b> tin nhắn`, true);
+
+    if (running) {
+      if (currentDelay > 0) {
+        setTimeout(() => channel.port2.postMessage(null), currentDelay);
+      } else {
+        channel.port2.postMessage(null);
+      }
+    }
+  };
+
+  function start() {
+    if (running) return;
+    sent = 0;
+    running = true;
+    currentDelay = parseInt(delayInput.value, 10);
+    
+    log('🚀 Đang bắn siêu tốc...', true);
+    
+    silentAudio.play().catch(e => console.log("Hãy click chuột vào trang 1 lần để bật chế độ chạy ngầm."));
+    
+    channel.port2.postMessage(null);
+  }
+
+  function stop(msg = '⏸ Đã dừng lại.') {
+    running = false;
+    silentAudio.pause();
+    log(msg + ` (Tổng cộng: ${sent} tin)`);
+  }
+
+  $('#pro-start').addEventListener('click', start);
+  $('#pro-stop').addEventListener('click', () => stop());
+  $('#pro-close').addEventListener('click', () => { 
+    stop('Đã đóng bảng điều khiển.'); 
+    panel.remove(); 
+    style.remove();
+  });
+
+  console.log('⚡ Hệ thống Pro Spammer đã sẵn sàng.');
+})();
