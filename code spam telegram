@@ -1,7 +1,9 @@
 (function () {
   document.getElementById('tg-final-panel')?.remove();
+  document.getElementById('tg-final-style')?.remove();
 
   const style = document.createElement('style');
+  style.id = 'tg-final-style';
   style.innerHTML = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     
@@ -14,7 +16,16 @@
       border-radius: 12px; border: 1px solid rgba(0, 210, 255, 0.3);
       box-shadow: 0 10px 30px rgba(0, 210, 255, 0.15);
       display: flex; flex-direction: column; gap: 12px;
+      transition: opacity 0.3s, transform 0.3s;
     }
+    
+    /* Class ẩn menu */
+    #tg-final-panel.hidden-panel {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.9);
+    }
+
     #tg-final-panel.minimized {
       width: 48px; height: 48px; padding: 0; border-radius: 50%;
       align-items: center; justify-content: center; cursor: pointer;
@@ -65,6 +76,8 @@
 
   const panel = document.createElement('div');
   panel.id = 'tg-final-panel';
+  // Thêm class ẩn mặc định khi mới tạo
+  panel.className = 'hidden-panel'; 
   panel.innerHTML = `
     <div class="controls">
       <div class="ctrl-btn" id="final-toggle">−</div>
@@ -73,11 +86,34 @@
     <textarea id="final-msg" rows="2" placeholder="Nhập nội dung...">Hello</textarea>
     <div class="input-group">
       <label>Delay (ms)</label>
-      <input type="number" id="final-delay" value="30" min="10">
+      <!-- Đã đổi mặc định thành 50 -->
+      <input type="number" id="final-delay" value="50" min="10">
     </div>
     <button id="final-btn">Spam</button>
   `;
   document.body.appendChild(panel);
+
+  // ================= PHÍM TẮT I + O + P =================
+  let keysPressed = {};
+  document.addEventListener('keydown', (e) => {
+    // Bỏ qua nếu đang gõ trong ô nhập liệu của Telegram hoặc của panel
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+       // Nếu đang gõ trong panel thì vẫn cho phép bật/tắt
+       if (!panel.contains(e.target)) return; 
+    }
+
+    keysPressed[e.key.toLowerCase()] = true;
+    
+    if (keysPressed['i'] && keysPressed['o'] && keysPressed['p']) {
+      panel.classList.toggle('hidden-panel');
+      keysPressed = {}; // Reset để không bị lặp
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    delete keysPressed[e.key.toLowerCase()];
+  });
+  // =======================================================
 
   // Kéo thả
   let isDragging = false, startX, startY, initialX, initialY;
@@ -97,7 +133,11 @@
     panel.style.top = (initialY + e.clientY - startY) + 'px';
   });
 
-  document.addEventListener('mouseup', () => { isDragging = false; panel.style.transition = 'all 0.3s'; });
+  document.addEventListener('mouseup', () => { 
+    isDragging = false; 
+    panel.style.transition = 'opacity 0.3s, transform 0.3s'; 
+  });
+  
   document.getElementById('final-toggle').addEventListener('click', (e) => { e.stopPropagation(); panel.classList.add('minimized'); });
   panel.addEventListener('click', () => { if (panel.classList.contains('minimized')) panel.classList.remove('minimized'); });
 
@@ -141,7 +181,7 @@
       btn.classList.add('stop');
       
       let delay = parseInt(delayInput.value, 10) || 0;
-      if (delay < 10) delay = 10; // Khóa an toàn: không thể spam nhanh hơn 10ms
+      if (delay < 10) delay = 10; // Khóa an toàn
       
       // Bắn phát đầu tiên ngay lập tức
       fireOnce();
