@@ -131,10 +131,10 @@
   document.getElementById('final-toggle').addEventListener('click', (e) => { e.stopPropagation(); panel.classList.add('minimized'); });
   panel.addEventListener('click', () => { if (panel.classList.contains('minimized')) panel.classList.remove('minimized'); });
 
-  // ================= LOGIC SPAM CHU KỲ (6s BẬT - 5s TẮT) =================
-  let running = false;        // Trạng thái tổng (Bật/Tắt hoàn toàn)
-  let burstActive = false;    // Trạng thái trong 1 chu kỳ (đang spam hay đang nghỉ)
-  let interval = null;
+  // ================= LOGIC SPAM (6s BẬT - 5s TẮT) =================
+  let running = false;        // Trạng thái tổng
+  let spamInterval = null;    // Bộ đếm thời gian spam
+  let cycleTimeout = null;    // Bộ đếm thời gian nghỉ
   let sentCount = 0;
   
   const btn = document.getElementById('final-btn');
@@ -154,42 +154,44 @@
     box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
     
     sentCount++;
-    btn.textContent = `Dừng (Đã gửi: ${sentCount})`;
+    // Đang spam thì hiển thị số
+    if (running && spamInterval) {
+      btn.textContent = `Đang Spam (${sentCount})...`;
+    }
   }
 
-  // Hàm quản lý chu kỳ
-  function runCycle() {
+  function startCycle() {
     if (!running) return;
 
-    // Bắt đầu Spam (Bật)
-    burstActive = true;
+    // Bật trạng thái Spam
     btn.classList.add('stop');
+    btn.style.background = '';
     btn.textContent = `Đang Spam (${sentCount})...`;
 
     let delay = parseInt(delayInput.value, 10) || 50;
     if (delay < 10) delay = 10;
 
-    interval = setInterval(() => {
-      if (running && burstActive) {
-        fireOnce();
-      }
+    // Bắt đầu bắn tin nhắn liên tục
+    spamInterval = setInterval(() => {
+      if (running) fireOnce();
     }, delay);
 
-    // Hẹn giờ 6 giây sau thì dừng spam (Nghỉ)
-    setTimeout(() => {
+    // Hẹn giờ sau 6 giây thì dừng lại
+    cycleTimeout = setTimeout(() => {
       if (!running) return;
 
-      burstActive = false;
-      clearInterval(interval);
+      // Dừng spam
+      clearInterval(spamInterval);
+      spamInterval = null;
       
+      // Hiển thị trạng thái nghỉ (App đang xử lý)
+      btn.style.background = 'linear-gradient(135deg, #555 0%, #333 100%)';
       btn.textContent = `Đang nghỉ (${sentCount})...`;
-      btn.style.background = 'linear-gradient(135deg, #555 0%, #333 100%)'; // Đổi màu xám khi nghỉ
 
-      // Hẹn giờ 5 giây sau thì chạy lại chu kỳ mới
-      setTimeout(() => {
+      // Hẹn giờ 5 giây sau lặp lại chu kỳ
+      cycleTimeout = setTimeout(() => {
         if (!running) return;
-        btn.style.background = ''; // Trả lại màu xanh
-        runCycle();
+        startCycle(); // Bắt đầu lại
       }, 5000);
 
     }, 6000);
@@ -199,8 +201,8 @@
     if (running) {
       // DỪNG HOÀN TOÀN
       running = false;
-      burstActive = false;
-      clearInterval(interval);
+      clearInterval(spamInterval);
+      clearTimeout(cycleTimeout);
       
       btn.textContent = 'Spam';
       btn.classList.remove('stop');
@@ -210,14 +212,15 @@
       // BẮT ĐẦU CHU KỲ
       running = true;
       sentCount = 0;
-      runCycle();
+      startCycle();
     }
   });
 
   document.getElementById('final-close').addEventListener('click', (e) => {
     e.stopPropagation();
     running = false;
-    clearInterval(interval);
+    clearInterval(spamInterval);
+    clearTimeout(cycleTimeout);
     panel.remove();
     style.remove();
   });
