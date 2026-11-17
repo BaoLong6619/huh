@@ -1,0 +1,150 @@
+// ==UserScript==
+// @name         Long - Leak Web Pro (VIP)
+// @namespace    https://t.me/sourcetutmmo
+// @version      1.1
+// @description  Boc toan bo du lieu web (HTML, Cookie, Storage, Tokens, API) xuat ra file JSON
+// @author       ZTrongz
+// @match        *://*/*
+// @grant        none
+// @run-at       document-idle
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // ============================================================
+    // CORE: Thu thập toàn bộ dữ liệu
+    // ============================================================
+    function extractLeakData() {
+        const data = {
+            target_url: window.location.href,
+            title: document.title,
+            timestamp: new Date().toISOString(),
+            cookies: document.cookie || "Không có",
+            localStorage: {},
+            sessionStorage: {},
+            links: [],
+            scripts: [],
+            api_endpoints: new Set(),
+            raw_html: document.documentElement.outerHTML
+        };
+
+        // 1. Quét LocalStorage
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                let k = localStorage.key(i);
+                data.localStorage[k] = localStorage.getItem(k);
+            }
+        } catch (e) {}
+
+        // 2. Quét SessionStorage
+        try {
+            for (let i = 0; i < sessionStorage.length; i++) {
+                let k = sessionStorage.key(i);
+                data.sessionStorage[k] = sessionStorage.getItem(k);
+            }
+        } catch (e) {}
+
+        // 3. Quét Links
+        document.querySelectorAll('a').forEach(a => {
+            if (a.href) data.links.push(a.href);
+        });
+
+        // 4. Quét Scripts
+        document.querySelectorAll('script').forEach(s => {
+            if (s.src) data.scripts.push(s.src);
+        });
+
+        // 5. Quét Endpoint API (Tìm trong mã nguồn JS)
+        const inlineScripts = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.innerHTML).join('\n');
+        // Regex tìm các chuỗi giống API (chứa http, hoặc /api/)
+        const apiRegex = /(?:"|')((?:https?:\/\/[^"']*?|^\/)(?:\/api\/|\/v\d\/|\/auth\/)[^"']*?)(?:"|')/g;
+        const apis = inlineScripts.match(apiRegex);
+        if (apis) apis.forEach(a => data.api_endpoints.add(a.replace(/["']/g, '')));
+
+        // Convert Set to Array và giới hạn số lượng
+        data.api_endpoints = Array.from(data.api_endpoints);
+        data.links = [...new Set(data.links)].slice(0, 500);
+
+        return data;
+    }
+
+    // ============================================================
+    // XUẤT FILE JSON
+    // ============================================================
+    function downloadLeak() {
+        const btn = document.getElementById('long-leak-btn');
+        if(btn) btn.innerHTML = "⏳ Đang bóc...";
+
+        setTimeout(() => {
+            const data = extractLeakData();
+            const jsonStr = JSON.stringify(data, null, 4);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            
+            const domain = window.location.hostname.replace(/[^a-zA-Z0-9.-]/g, '_');
+            a.download = `Leak_${domain}_${Date.now()}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            
+            if(btn) btn.innerHTML = "💀 LEAK DATA";
+            alert(`[Long] Đã Leak Xong!\nURL: ${data.target_url}\nAPI tìm thấy: ${data.api_endpoints.length}\nDữ liệu đã lưu vào file JSON.`);
+        }, 100);
+    }
+
+    // ============================================================
+    // GUI (Nút bấm VIP + Chống bị web xóa)
+    // ============================================================
+    function buildUI() {
+        if (document.getElementById('long-leak-btn')) return;
+
+        const style = document.createElement('style');
+        style.textContent = `
+            #long-leak-btn {
+                position: fixed; bottom: 20px; left: 20px; z-index: 2147483647;
+                background: linear-gradient(135deg, #fe2c55, #ff5e00);
+                color: #fff; padding: 12px 24px; border-radius: 30px;
+                font-family: 'Segoe UI', sans-serif; font-weight: 900;
+                font-size: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(254, 44, 85, 0.4);
+                border: 2px solid #fff; transition: transform 0.2s, box-shadow 0.2s;
+                display: flex; align-items: center; gap: 8px; user-select: none;
+            }
+            #long-leak-btn:hover {
+                transform: scale(1.05); box-shadow: 0 6px 20px rgba(254, 44, 85, 0.6);
+            }
+            #long-leak-btn:active {
+                transform: scale(0.95);
+            }
+        `;
+        document.head.appendChild(style);
+
+        const btn = document.createElement('div');
+        btn.id = 'long-leak-btn';
+        btn.innerHTML = `💀 LEAK DATA`;
+        btn.onclick = downloadLeak;
+        
+        document.body.appendChild(btn);
+    }
+
+    // Chờ DOM load xong
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', buildUI);
+    } else {
+        buildUI();
+    }
+
+    // Chống web xóa nút (React re-render)
+    const mo = new MutationObserver(() => {
+        if (!document.getElementById('long-leak-btn') && document.body) {
+            buildUI();
+        }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+
+})();
