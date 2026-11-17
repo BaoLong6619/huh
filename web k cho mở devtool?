@@ -1,0 +1,98 @@
+// ==UserScript==
+// @name         Long - Absolute Anti-Debug Destroyer V2
+// @namespace    https://t.me/sourcetutmmo
+// @version      7.0
+// @description  Diet tan goc Anti-DevTools, chan setInterval, dong bang debugger
+// @author       ZTrongz
+// @match        *://henry07.site/*
+// @match        *://*.henry07.site/*
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // 1. TIÊM CODE VÀO TRƯỚC KHI WEB KỊP CHẠY
+    const inject = document.createElement('script');
+    inject.textContent = `
+        // Xóa sạch mọi bộ đếm giờ đang chạy (nếu có)
+        for (let i = 1; i < 99999; i++) window.clearInterval(i);
+        for (let i = 1; i < 99999; i++) window.clearTimeout(i);
+
+        // Đánh chặn hàm Function (nơi sinh ra chữ debugger)
+        const OriginalFunction = window.Function;
+        window.Function = new Proxy(OriginalFunction, {
+            construct(target, args) {
+                if (args.length > 0 && typeof args[args.length - 1] === 'string') {
+                    // Xóa chữ debugger khỏi code trước khi nó được biên dịch
+                    args[args.length - 1] = args[args.length - 1].replace(/debugger/g, '');
+                }
+                return new target(...args);
+            }
+        });
+
+        // Đánh chặn setInterval (nơi liên tục gọi hàm debugger)
+        const originalSetInterval = window.setInterval;
+        window.setInterval = new Proxy(originalSetInterval, {
+            apply(target, thisArg, args) {
+                if (typeof args[0] === 'function' && args[0].toString().includes('debugger')) {
+                    return 0; // Trả về ID giả, không chạy hàm này
+                }
+                return Reflect.apply(target, thisArg, args);
+            }
+        });
+
+        // Đánh chặn setTimeout
+        const originalSetTimeout = window.setTimeout;
+        window.setTimeout = new Proxy(originalSetTimeout, {
+            apply(target, thisArg, args) {
+                if (typeof args[0] === 'function' && args[0].toString().includes('debugger')) {
+                    return 0;
+                }
+                return Reflect.apply(target, thisArg, args);
+            }
+        });
+
+        // Đóng băng thời gian
+        performance.now = () => 0;
+        Date.now = () => 0;
+
+        // Làm mù Console
+        console.log = () => {};
+        console.clear = () => {};
+        console.warn = () => {};
+        console.error = () => {};
+    `;
+    document.documentElement.appendChild(inject);
+
+    // 2. XÓA SỔ KHUNG THÔNG BÁO ĐEN
+    const destroyOverlay = () => {
+        const elements = document.querySelectorAll('div, span, p, h1, h2, h3');
+        elements.forEach(el => {
+            if (el.innerText && (
+                el.innerText.includes("Hệ thống phát hiện Debugger") ||
+                el.innerText.includes("DevTools đã bị khóa") ||
+                el.innerText.includes("Vui lòng đóng công cụ kiểm tra")
+            )) {
+                el.remove();
+                if (el.parentElement) el.parentElement.remove();
+            }
+        });
+    };
+
+    const observer = new MutationObserver(destroyOverlay);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    // 3. CHO PHÉP BẤM F12, CHUỘT PHẢI
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) || (e.ctrlKey && e.key === 'U')) {
+            e.stopImmediatePropagation();
+        }
+    }, true);
+
+    window.addEventListener('contextmenu', (e) => {
+        e.stopImmediatePropagation();
+    }, true);
+
+})();
